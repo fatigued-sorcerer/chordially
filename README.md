@@ -4,6 +4,8 @@
 
 ![Chordially](docs/screenshots/main.jpg)
 
+🎬 [Watch the 40-second promo](https://github.com/fatigued-sorcerer/chordially/raw/main/dist/Chordially-promo.mp4)
+
 You bring the groove and the lead lines. Chordially handles the chords and the arrangement around you.
 
 Start from a library of ready-made chord progressions, or build your own in the chord sequencer. Playback comes from the built-in synth, with simple controls you can shape on the fly. If you want a different sound, load your own plugin instruments and effects (Audio Units — the format Mac plugins install next to their VST), or stay with the included reverb and delay.
@@ -27,7 +29,7 @@ No complicated routing. No setup headaches. Just plug in, pick a progression, an
 | ![](docs/screenshots/sound-effects.jpg) | ![](docs/screenshots/s1-t8.jpg) |
 
 ## Download
-Get **Chordially.dmg** from the [latest release](https://github.com/fatigued-sorcerer/chordially/releases/latest), open it and drag Chordially to Applications. The app is not notarized: on first launch go to System Settings → Privacy & Security and click **Open Anyway**.
+**[⬇ Download Chordially.dmg](https://github.com/fatigued-sorcerer/chordially/raw/main/dist/Chordially.dmg)** (version 2.0.2, also on the [Releases](https://github.com/fatigued-sorcerer/chordially/releases/latest) page), open it and drag Chordially to Applications. The app is not notarized: on first launch go to System Settings → Privacy & Security and click **Open Anyway**.
 
 Chordially isn't notarized by Apple (it's a free hobby project), so the first launch needs one extra step:
 open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**.
