@@ -200,6 +200,11 @@ body.ext-inst .knob.plugonly { display: block !important; }
 .st.sel { outline: 2px solid var(--acc2); outline-offset: -2px; }
 .st .ss { position: absolute; top: 1px; right: 3px; font-size: 7px; color: var(--acc2); }
 .st .sn { position: absolute; top: 1px; left: 3px; font-size: 7px; color: var(--faint); font-weight: 400; }
+.patbtns { display: inline-flex; gap: 4px; margin-right: 6px; }
+.patbtns button { height: 24px; padding: 0 8px; font-size: 11px; }
+#bundo.dim { opacity: .45; }
+.sel .val.typed { cursor: text; }
+.sel input.typein { width: 100%; height: 26px; text-align: center; font: inherit; background: var(--panel); color: var(--ink); border: 1px solid var(--acc); border-radius: 6px; padding: 0; }
 #seqbtns { display: flex; gap: 6px 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
 #seqbtns > * { height: 28px; }
 #seqbtns button, #seqbtns select { height: 28px; padding-top: 0; padding-bottom: 0; }
@@ -413,7 +418,8 @@ body.ext-inst .knob.plugonly { display: block !important; }
           <div id="patgrid"></div>
         </div>
         <div id="stepsw">
-          <div class="stephdr"><span class="lbl">Steps · click to select (Alt-click to hear) · EDIT on: play a chord to write it</span>
+          <div class="stephdr"><span class="lbl" title="Click to select, Alt-click to hear. EDIT on: play a chord to write it">Steps · Alt-click to hear</span>
+            <span class="patbtns"><button id="bundo" title="Undo the last change to a pattern (⌘Z)">↶ UNDO</button><button id="bsave" title="Save all patterns to disk now (they are also saved automatically)">SAVE</button><button id="breset" title="Back to the stock pattern for this slot: steps, sound and every setting">RESET</button><button id="binit" title="INIT: an empty 16-step pattern with every setting at its default">INIT</button></span>
             <span class="small">Name</span><input type="text" id="patrename" placeholder="name" style="width:120px">
             <select id="copyto" title="Copy this pattern to"></select></div>
           <div id="steps"></div>
@@ -545,6 +551,11 @@ body.ext-inst .knob.plugonly { display: block !important; }
 <tr><td><b>Step style</b></td><td>Gives the selected step its own phrase style and variation, used for that chord and its ties. "pattern's" = the pattern's STYLE.</td></tr>
 <tr><td><b>● REC</b></td><td>Real-time recording while playing: the chord you play goes into the step that's playing (or the next one, if you press in the last quarter of a step).</td></tr>
 <tr><td><b>CLEAR</b></td><td>Double-click: empties the pattern (keeps its name and sound).</td></tr>
+<tr><td><b>Length</b></td><td>How many steps the pattern has (1–64). Use ◀ ▶, the mouse wheel, or click the number and type it, then Enter. Steps past the length are greyed out; clicking them doesn't make the pattern longer.</td></tr>
+<tr><td><b>↶ UNDO</b></td><td>Takes back the last change to a pattern: written steps, TIE, REST, CLEAR, RANDOM, RESET, INIT, copy, length, sound and knob moves (a knob turned in one go is one step). Press again to go further back. ⌘Z does the same.</td></tr>
+<tr><td><b>SAVE</b></td><td>Writes all patterns to disk at once. Chordially also saves on its own every few seconds and when you quit.</td></tr>
+<tr><td><b>RESET</b></td><td>Puts back the stock pattern for this slot: its chords, length, sound, tempo and every setting. UNDO brings your version back.</td></tr>
+<tr><td><b>INIT</b></td><td>Starts this slot from scratch: an empty 16-step pattern with every setting at its default. UNDO brings it back.</td></tr>
 <tr><td><b>RANDOM</b></td><td>Writes a new progression in the current chord set and key. The bass moves the way real progressions do (up a fourth / down a fifth strongest, then thirds and steps), the set's main chords come first, few chords repeat, and the version that flows best back to its first chord is kept. It also picks a rhythm (1- or 2-bar chords, pushes) and a phrase style. It names the pattern "Random NNN".</td></tr>
 <tr><td><b>GENERATIVE</b></td><td>On: every time the pattern comes round, one or two chords are replaced by musically related ones, and now and then the variation changes. The first chord always stays, so the progression keeps its home while it evolves.</td></tr>
 </table>
@@ -590,7 +601,7 @@ body.ext-inst .knob.plugonly { display: block !important; }
 </table>
 
 <h2 id="h-about">About and licence</h2>
-<p><b>Chordially 2.0.1</b> · © 2026 Pavel Vild.</p>
+<p><b>Chordially 2.0.2</b> · © 2026 Pavel Vild.</p>
 <p>Chordially is free software: you can use, study, share and change it under the terms of the <b>GNU General Public License, version 3</b> (GPL-3.0-only). It comes with <b>no warranty</b>. The full licence text is in the file <i>LICENSE</i> that comes with the app and its source code.</p>
 <p><b>An independent project.</b> Chordially is not made, endorsed, sponsored or supported by Roland Corporation, Arturia, or any other manufacturer named here, and is not connected with them. It contains no code, firmware, samples, sound data, presets, chord-set tables, artwork or manual text from any of them. The synth engines, sounds, chord sets, phrases, interface and help are its own.</p>
 <p><b>Trademarks.</b> Roland, J-6, S-1, T-8 and AIRA are trademarks of Roland Corporation. Arturia and KeyStep are trademarks of Arturia. Apple, Mac, macOS and Audio Units are trademarks of Apple Inc. All other names are the property of their owners. They are used here only to say which instruments Chordially works with, or to describe its general idea, and imply no affiliation.</p>
@@ -813,7 +824,7 @@ function selInfo(f) {
     case "var": { const st = c.styles[p.style]; return { v: p.var, n: 8, txt: i => p.style ? (i + 1) + " " + st[i + 1] : "—", list: p.style ? st.slice(1).map((s, i) => (i + 1) + " " + s) : null }; }
     case "sound": return { v: p.sound, n: c.sounds.length, txt: i => c.sounds[i][0], list: c.sounds.map((s, i) => s[1] + " · " + s[0]) };
     case "dly_time": return { v: S.g.dly_time, n: S.g.dly_names.length, txt: i => S.g.dly_names[i], g: 1 };
-    case "last": return { v: p.last - 1, n: 64, txt: i => String(i + 1), map: i => i + 1 };
+    case "last": return { v: p.last - 1, n: 64, txt: i => String(i + 1), map: i => i + 1, typed: 1 };
   }
 }
 function selSet(f, idx) {
@@ -828,8 +839,21 @@ $$(".sel").forEach(el => {
   bl.onclick = () => selSet(f, selInfo(f).v - 1);
   br.onclick = () => selSet(f, selInfo(f).v + 1);
   val.addEventListener("wheel", e => { e.preventDefault(); selSet(f, selInfo(f).v + (e.deltaY > 0 ? 1 : -1)); }, { passive: false });
+  if (f === "last") { val.classList.add("typed"); val.title = "Click and type the number of steps (1–64), then Enter"; }
   val.onclick = () => {                                   // a list to pick from
-    const inf = selInfo(f); if (!inf || !inf.list) return;
+    const inf = selInfo(f); if (!inf) return;
+    if (inf.typed) {                                       // type the number in
+      if (val.querySelector("input")) return;
+      const i = document.createElement("input"); i.type = "number"; i.min = 1; i.max = inf.n; i.className = "typein"; i.value = inf.v + 1;
+      val.textContent = ""; val.appendChild(i); i.focus(); i.select();
+      let gone = 0;
+      const done = ok => { if (gone) return; gone = 1; const n = Math.round(+i.value); i.remove(); if (ok && n >= 1) selSet(f, Math.min(inf.n, n) - 1); el._draw(); };
+      i.onkeydown = e => { e.stopPropagation(); if (e.key === "Enter") done(1); else if (e.key === "Escape") done(0); };
+      i.onkeyup = e => e.stopPropagation();
+      i.onblur = () => done(1);
+      return;
+    }
+    if (!inf.list) return;
     const s = document.createElement("select"); s.size = Math.min(18, inf.list.length);
     inf.list.forEach((t, i) => { const o = document.createElement("option"); o.value = i; o.textContent = t; s.appendChild(o); });
     s.value = inf.v; const r = val.getBoundingClientRect();
@@ -839,7 +863,7 @@ $$(".sel").forEach(el => {
     s.onchange = () => { selSet(f, +s.value); done(); }; s.onblur = done;
     s.onkeydown = e => { if (e.key === "Escape" || e.key === "Enter") { if (e.key === "Enter") selSet(f, +s.value); done(); } e.stopPropagation(); };
   };
-  el._draw = () => { const inf = selInfo(f); val.textContent = inf.txt(inf.v); };
+  el._draw = () => { if (val.querySelector("input")) return; const inf = selInfo(f); val.textContent = inf.txt(inf.v); };
 });
 
 /* ------------------------------------------------------------------ sequencer */
@@ -849,7 +873,7 @@ $$(".sel").forEach(el => {
   const st = $("#steps");
   for (let i = 0; i < 64; i++) {
     const d = document.createElement("div"); d.className = "st";
-    d.addEventListener("pointerdown", e => { send({ t: "sel", v: i, hear: e.altKey || !(S && S.chord.edit) ? 0 : 0 }); if (e.altKey) { send({ t: "sel", v: i, hear: 1 }); d._h = 1; } });
+    d.addEventListener("pointerdown", e => { if (S && i >= S.chord.p.last) { flash("STEP " + (i + 1), "beyond LENGTH " + S.chord.p.last); return; } send({ t: "sel", v: i, hear: e.altKey || !(S && S.chord.edit) ? 0 : 0 }); if (e.altKey) { send({ t: "sel", v: i, hear: 1 }); d._h = 1; } });
     d.addEventListener("pointerup", () => { if (d._h) { send({ t: "unhear" }); d._h = 0; } });
     st.appendChild(d);
   }
@@ -861,6 +885,15 @@ $$(".sel").forEach(el => {
   $("#bedit").onclick = () => send({ t: "edit", v: S.chord.edit ? 0 : 1 });
   $("#btie").onclick = () => send({ t: "tie" });
   $("#brest").onclick = () => send({ t: "rest" });
+  $("#bundo").onclick = () => { if (!S.chord.undo) { flash("UNDO", "nothing to undo"); return; } send({ t: "undo" }); flash("UNDO", ""); };
+  $("#bsave").onclick = () => { send({ t: "savepat" }); flash("SAVED", "all patterns"); };
+  $("#breset").onclick = () => { send({ t: "resetpat" }); flash("RESET", "stock pattern (UNDO to go back)"); };
+  $("#binit").onclick = () => { send({ t: "initpat" }); flash("INIT", "empty pattern (UNDO to go back)"); };
+  document.addEventListener("keydown", e => {
+    if ((e.metaKey || e.ctrlKey) && (e.key === "z" || e.key === "Z") && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) {
+      e.preventDefault(); e.stopImmediatePropagation(); $("#bundo").click();
+    }
+  }, true);
   $("#bclear").ondblclick = () => send({ t: "clearpat" });
   $("#bclear").onclick = () => flash("CLEAR", "double-click");
   $("#steplen").onchange = e => send({ t: "set", f: "steplen", v: +e.target.value });
@@ -883,6 +916,7 @@ function drawSeq() {
   });
   $("#bedit").classList.toggle("on", !!c.edit);
   $("#bgen").classList.toggle("on", !!c.gen);
+  $("#bundo").classList.toggle("dim", !c.undo);
   $("#steplen").innerHTML = c.steplens.map((s, i) => `<option value="${i}">${s}</option>`).join(""); $("#steplen").value = p.steplen;
   $("#pchange").value = c.pchange;
   const ss = $("#ststyle"); let h = '<option value="-1,0">pattern\'s</option>';
@@ -1001,7 +1035,7 @@ function applySkin(i) { document.documentElement.dataset.skin = (SKINS[i] || SKI
 
 /* ------------------------------------------------------------------ transport, tempo */
 /* donations: links open in the default browser (the app passes "open" messages to macOS) */
-const SPONSOR_URL = "https://github.com/sponsors/fatigued-sorcerer", KOFI_URL = "";
+const SPONSOR_URL = "https://github.com/sponsors/fatigued-sorcerer", KOFI_URL = "https://ko-fi.com/H0N52AZX84";
 $("#bsponsor").onclick = () => send({ t: "open", url: SPONSOR_URL });
 if (KOFI_URL) $("#bkofi").onclick = () => send({ t: "open", url: KOFI_URL }); else $("#bkofi").style.display = "none";
 /* keys belong to the instrument: a menu or button keeps no keyboard focus after use, so the Mac keys (and Space)
@@ -1009,11 +1043,13 @@ if (KOFI_URL) $("#bkofi").onclick = () => send({ t: "open", url: KOFI_URL }); el
 document.addEventListener("change", e => { if (e.target.tagName === "SELECT") setTimeout(() => e.target.blur(), 0); }, true);
 document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("button"); if (b) setTimeout(() => b.blur(), 0); }, true);
 let tpWant = null, tpAt = 0;   /* what PLAY last asked for, until the core's live view confirms it (fast clicks never cancel themselves) */
-$("#bplay").onclick = () => {
-  const now = Date.now(), cur = tpWant !== null && now - tpAt < 500 ? tpWant : !!(LV && LV.play);
-  tpWant = !cur; tpAt = now; send({ t: tpWant ? "play" : "stop" });
-};
-$("#bstop").onclick = () => send({ t: "stop" });
+let tpPress = 0;
+const tpToggle = () => { const now = Date.now(), cur = tpWant !== null && now - tpAt < 500 ? tpWant : !!(LV && LV.play); tpWant = !cur; tpAt = now; send({ t: tpWant ? "play" : "stop" }); };
+$("#bplay").addEventListener("pointerdown", e => { if (e.button === 0) { tpPress = Date.now(); tpToggle(); } });   /* (acts on the press: never lost) */
+$("#bplay").onclick = () => { if (Date.now() - tpPress < 600) return; tpToggle(); };   /* (Space and keyboard) */
+let stPress = 0;
+$("#bstop").addEventListener("pointerdown", e => { if (e.button === 0) { stPress = Date.now(); tpWant = false; tpAt = Date.now(); send({ t: "stop" }); } });
+$("#bstop").onclick = () => { if (Date.now() - stPress < 600) return; tpWant = false; tpAt = Date.now(); send({ t: "stop" }); };
 $("#brec").onclick = () => send({ t: "rec", v: S.chord.rec ? 0 : 1 });
 $("#bchord").onclick = () => send({ t: "set", f: "chordmode", v: S.chord.chordmode ? 0 : 1 });
 $("#bhold").onclick = () => { send({ t: "set", f: "hold", v: S.chord.hold ? 0 : 1 }); flash("HOLD", S.chord.hold ? "off" : "on"); };
@@ -1086,12 +1122,15 @@ function drawState() {
   $("#mhelp").innerHTML = "Clock out to " + (S.ports.outs.filter(x => x[1]).map(x => "<b>" + x[0] + "</b>").join(", ") || "no port") + (S.g.clk_src ? " · following external clock" : "") + (c.outport ? "<br>Chord notes → <b>" + c.outport + "</b> ch " + c.outch : "");
 }
 let lastStep = -1, lastLiveSig = "";
+/* text that changes at 60 frames a second is written only when it really changes: rewriting a button's text replaced
+   the node under the mouse between press and release, and WebKit then dropped the click (PLAY "needed several clicks") */
+const setText = (el, t) => { if (el && el.textContent !== t) el.textContent = t; };
 function drawLive() {
   const c = LV.c;
   $("#bplay").classList.toggle("on", !!LV.play);
-  $("#bplay").textContent = LV.play ? "❚❚" : "▶";
-  $("#tempo").textContent = LV.bpm.toFixed(1);
-  $("#clk").textContent = LV.ext ? "EXT" : "INT"; $("#clk").classList.toggle("ext", !!LV.ext);
+  setText($("#bplay"), LV.play ? "❚❚" : "▶");
+  setText($("#tempo"), LV.bpm.toFixed(1));
+  setText($("#clk"), LV.ext ? "EXT" : "INT"); $("#clk").classList.toggle("ext", !!LV.ext);
   const sig = c.chord + "|" + c.cn.join() + "|" + c.held.join() + "|" + LV.play;
   if (sig !== lastLiveSig) {
     lastLiveSig = sig;
@@ -1113,7 +1152,7 @@ function drawLive() {
       bar.forEach((b, i) => { const s = page * 16 + i; b.className = (s === step ? "p" : "") + (s < p.last && S.chord.steps[s][0] ? " u" : ""); });
       $("#stepnum").textContent = step >= 0 ? step + 1 : "-";
     }
-    $("#barnum").textContent = LV.play ? Math.floor(LV.beat / 4) + 1 : "-";
+    setText($("#barnum"), String(LV.play ? Math.floor(LV.beat / 4) + 1 : "-"));
     $$("#patgrid div").forEach((d, i) => d.classList.toggle("nx", i === c.next));
   }
   const mv = (id, v) => { const el = $(id + " i"); if (el) el.style.width = Math.min(100, Math.max(0, (20 * Math.log10(v + 1e-6) + 48) / 48 * 100)) + "%"; };

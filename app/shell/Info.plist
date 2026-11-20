@@ -7,9 +7,9 @@
 	<key>CFBundleName</key><string>Chordially</string>
 	<key>CFBundleDisplayName</key><string>Chordially</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
-	<key>CFBundleShortVersionString</key><string>2.0.1</string>
+	<key>CFBundleShortVersionString</key><string>2.0.2</string>
 	<key>NSHumanReadableCopyright</key><string>© 2026 Pavel Vild. Free software under the GNU GPL v3. Not affiliated with Roland, Arturia or any other manufacturer.</string>
-	<key>CFBundleVersion</key><string>21</string>
+	<key>CFBundleVersion</key><string>22</string>
 	<key>NSMicrophoneUsageDescription</key><string>Chordially plays the USB audio of your S-1 and T-8 through its mixer and effects.</string>
 	<key>CFBundleIconFile</key><string>Chordially</string>
 	<key>LSMinimumSystemVersion</key><string>13.0</string>

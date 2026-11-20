@@ -15,21 +15,31 @@ CF="-O2 -ffp-contract=off -w -Icore -Ishell -Iengines/classic1 -Iengines/classic
 SRC="core/cm.c core/part_chord.c core/part_ext.c core/chords.c core/phrases.c core/json.c engines/classic1/aura.c engines/classic1/titan.c engines/classic2/fathom.c shell/shell.c shell/ain.c"
 : > "$LOG/build.log"
 echo "Compiling ..."
-rm -f build/obj/*.o
-for f in $SRC; do
-  echo "compile $f" >> "$LOG/build.log"
-  clang $CF -c "$f" -o "build/obj/$(basename "$f" .c).o" >> "$LOG/build.log" 2>&1 || echo "FAILED $f" >> "$LOG/build.log"
-done
+# for shipping: one app for Apple Silicon and Intel Macs, macOS 13 or newer (falls back to this Mac only if that fails)
+MINOS=13.0; ARCHS="arm64 x86_64"
+compile_all() {
+  rm -f build/obj/*.o
+  for f in $SRC; do
+    echo "compile $f ($ARCHS, macOS $MINOS)" >> "$LOG/build.log"
+    clang $CF $AF -c "$f" -o "build/obj/$(basename "$f" .c).o" >> "$LOG/build.log" 2>&1 || echo "FAILED $f" >> "$LOG/build.log"
+  done
+}
+AF="-arch arm64 -arch x86_64 -mmacosx-version-min=$MINOS"; compile_all
+if grep -q "^FAILED" "$LOG/build.log"; then
+  echo "NOTE: universal build failed, building for this Mac only" >> "$LOG/build.log"; sed -i '' 's/^FAILED/failed (universal)/' "$LOG/build.log"
+  ARCHS="$(uname -m)"; AF="-arch $ARCHS -mmacosx-version-min=$MINOS"; compile_all
+fi
 if grep -q "^FAILED" "$LOG/build.log"; then echo; echo "The build did not succeed (log/build.log). Tell Claude: build failed."; exit 1; fi
 
 echo "Self-test ..."
 CORE="build/obj/cm.o build/obj/part_chord.o build/obj/part_ext.o build/obj/chords.o build/obj/phrases.o build/obj/json.o build/obj/aura.o build/obj/titan.o build/obj/fathom.o"
-clang $CF -o build/cm-selftest selftest/core_test.c $CORE >> "$LOG/build.log" 2>&1
+clang $CF $AF -o build/cm-selftest selftest/core_test.c $CORE >> "$LOG/build.log" 2>&1
 { echo "== $(date)"; build/cm-selftest; } > "$LOG/selftest.txt" 2>&1
 tail -1 "$LOG/selftest.txt" | sed 's/^/  /'
 
 echo "Building Chordially.app ..."
 APP="build/Chordially.app"; rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+PBV=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" shell/Info.plist 2>/dev/null); CBV=$(grep -o "define CM_BUILD [0-9]*" core/cm.h | awk "{print \$3}"); [ "$PBV" = "$CBV" ] || echo "WARNING: Info.plist CFBundleVersion $PBV != CM_BUILD $CBV (core/cm.h)"
 cp shell/Info.plist "$APP/Contents/Info.plist"
 cp web/index.html "$APP/Contents/Resources/index.html"
 if [ -f web/icon-1024.png ]; then                       # the icon: one PNG -> an .icns
@@ -40,9 +50,22 @@ if [ -f web/icon-1024.png ]; then                       # the icon: one PNG -> a
   done
   iconutil -c icns "$IS" -o "$APP/Contents/Resources/Chordially.icns" >> "$LOG/build.log" 2>&1
 fi
-swiftc -O -swift-version 5 -import-objc-header shell/shell.h -o "$APP/Contents/MacOS/Chordially" shell/main.swift shell/insert.swift build/obj/*.o \
-  -framework AudioToolbox -framework CoreAudio -framework CoreMIDI -framework AVFoundation -framework CoreAudioKit -framework WebKit -framework Cocoa >> "$LOG/build.log" 2>&1
-status=$?; echo "swiftc exit $status" >> "$LOG/build.log"
+FW="-framework AudioToolbox -framework CoreAudio -framework CoreMIDI -framework AVFoundation -framework CoreAudioKit -framework WebKit -framework Cocoa"
+status=0; SL=""
+for a in $ARCHS; do
+  swiftc -O -swift-version 5 -target $a-apple-macos$MINOS -import-objc-header shell/shell.h -o "build/Chordially-$a" shell/main.swift shell/insert.swift build/obj/*.o $FW >> "$LOG/build.log" 2>&1 \
+    || { echo "swiftc $a failed" >> "$LOG/build.log"; status=1; }
+  SL="$SL build/Chordially-$a"
+done
+if [ $status -ne 0 ]; then                              # (the old way: this Mac's own architecture and macOS)
+  echo "NOTE: universal / macOS $MINOS app build failed, building for this Mac only" >> "$LOG/build.log"
+  ARCHS="$(uname -m)"
+  swiftc -O -swift-version 5 -import-objc-header shell/shell.h -o "$APP/Contents/MacOS/Chordially" shell/main.swift shell/insert.swift build/obj/*.o $FW >> "$LOG/build.log" 2>&1
+  status=$?
+else
+  lipo -create $SL -output "$APP/Contents/MacOS/Chordially" >> "$LOG/build.log" 2>&1; status=$?
+fi
+echo "swiftc exit $status ($(lipo -archs "$APP/Contents/MacOS/Chordially" 2>/dev/null))" >> "$LOG/build.log"
 if [ $status -ne 0 ]; then echo; echo "The app build did not succeed (log/build.log). Tell Claude: build failed."; exit 1; fi
 codesign --force -s - "$APP" >> "$LOG/build.log" 2>&1
 

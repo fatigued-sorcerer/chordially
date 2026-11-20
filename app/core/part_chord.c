@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <time.h>
 #include "cm_int.h"
 #include "chords.h"
 #include "phrases.h"
@@ -100,6 +101,8 @@ static void all_off(int frame)
 }
 static pat_t *P(void) { return &C.pat[C.cur]; }
 static void all_off(int frame);
+static void undo_push(const char *key);
+static int undo_count(void);
 static void find_params(void)
 {
     static const char *const NAME[4] = {"ATTACK", "DECAY", "SUSTAIN", "RELEASE"};
@@ -273,11 +276,13 @@ static void ch_key(part_t *p, int frame, int note, int vel)
         C.vel_live = vel;
         live_chord_from_keys();
         if (C.edit && !CK.playing) {                       /* step edit: write, next step */
+            undo_push(NULL);
             step_write(C.sel, C.live_note, C.live_n, C.live_label);
             C.sel = (C.sel + 1) % (P()->last > 0 ? P()->last : 1);
         } else if (C.rec && CK.playing) {
             long into = (CK.ptick - C.seq0) % STEPLEN[P()->steplen];
             int s = into > STEPLEN[P()->steplen] * 3 / 4 ? (C.step + 1) % P()->last : C.step;
+            undo_push("rec");
             step_write(s, C.live_note, C.live_n, C.live_label);
         }
         refresh(frame, 1);
@@ -633,11 +638,12 @@ static int find_sound(const char *name)
     cm_factory_misses++;
     return 0;
 }
+static int find_style(const char *name) { for (int i = 0; i < ph_nstyles(); i++) if (!strcmp(ph_style(i), name)) return i; cm_factory_misses++; return 0; }
 static void factory(void)
 {
     for (int i = 0; i < NPAT; i++) pat_default(&C.pat[i], i);
     /* steplen 3 = a quarter per step; the keys name the bass notes (lower case = sharp) */
-    pat_factory(0, "Pop Drive", find_set("Pop Bright"), 0, 110, 1, 0, find_sound("Aura Pluck"), 3, "C---G---A---F---");
+    pat_factory(0, "Pop Drive", find_set("Pop Bright"), 0, 110, find_style("PULSE"), 6, find_sound("Synth Brass"), 3, "C---G---A---F---");   /* PULSE 7 OFFBEAT */
     pat_factory(1, "Ballad", find_set("Pop Ballad"), 0, 76, 8, 1, find_sound("Velvet EP"), 3, "C---B---A---G---F---E---D---G---");
     pat_factory(2, "Neo Soul", find_set("Neo Soul 1"), 0, 84, 6, 4, find_sound("Velvet EP"), 3, "D---G---C---A---");
     pat_factory(3, "Deep House", find_set("Deep House"), 0, 122, 5, 0, find_sound("Organ 60"), 3, "C-------A-------F-------G-------");
@@ -708,7 +714,7 @@ static void factory(void)
         pat_factory(16 + i, X[i].name, find_set(X[i].set), 0, X[i].bpm, X[i].style, X[i].var, find_sound(X[i].sound), 3, X[i].keys);
 
     /* even loudness: the plucky phrase patterns a little louder */
-    static const int LOUD[][2] = {{0, 108}, {1, 106}, {2, 81}, {3, 81}, {4, 127}, {5, 81}, {6, 96}, {7, 80}, {8, 81}, {9, 84}, {10, 95}, {11, 80}, {12, 80}, {13, 116}, {14, 80}, {15, 97}, {16, 80}, {17, 80}, {18, 127}, {19, 96}, {20, 80}, {21, 80}, {22, 80}, {23, 68}, {24, 94}, {25, 90}, {26, 80}, {27, 97}, {28, 80}, {29, 81}, {30, 117}, {31, 84}, {32, 80}, {33, 83}, {34, 73}, {35, 81}, {36, 99}, {37, 81}, {38, 100}, {39, 80}, {40, 88}, {41, 80}, {42, 74}, {43, 127}, {44, 80}, {45, 127}, {46, 88}, {47, 80}, {48, 109}, {49, 115}, {50, 127}, {51, 97}, {52, 110}, {53, 103}, {54, 80}, {55, 98}, {56, 84}, {57, 108}, {58, 80}, {59, 80}, {60, 97}, {61, 80}, {62, 100}, {63, 127}};
+    static const int LOUD[][2] = {{0, 88}, {1, 106}, {2, 81}, {3, 81}, {4, 127}, {5, 81}, {6, 96}, {7, 80}, {8, 81}, {9, 84}, {10, 95}, {11, 80}, {12, 80}, {13, 116}, {14, 80}, {15, 97}, {16, 80}, {17, 80}, {18, 127}, {19, 96}, {20, 80}, {21, 80}, {22, 80}, {23, 68}, {24, 94}, {25, 90}, {26, 80}, {27, 97}, {28, 80}, {29, 81}, {30, 117}, {31, 84}, {32, 80}, {33, 83}, {34, 73}, {35, 81}, {36, 99}, {37, 81}, {38, 100}, {39, 80}, {40, 88}, {41, 80}, {42, 74}, {43, 127}, {44, 80}, {45, 127}, {46, 88}, {47, 80}, {48, 109}, {49, 115}, {50, 127}, {51, 97}, {52, 110}, {53, 103}, {54, 80}, {55, 98}, {56, 84}, {57, 108}, {58, 80}, {59, 80}, {60, 97}, {61, 80}, {62, 100}, {63, 127}};
     if (!getenv("CM_NOLOUD")) for (int i = 0; i < (int)(sizeof LOUD / sizeof LOUD[0]); i++) C.pat[LOUD[i][0]].vol = LOUD[i][1];
 }
 
@@ -787,6 +793,7 @@ static void ch_state(part_t *p, jb_t *b)
     jb_key(b, "edit"); jb_int(b, C.edit);
     jb_key(b, "rec"); jb_int(b, C.rec);
     jb_key(b, "gen"); jb_int(b, C.gen);
+    jb_key(b, "undo"); jb_int(b, undo_count());
     jb_key(b, "hold"); jb_int(b, C.hold);
     jb_key(b, "chordmode"); jb_int(b, C.chordmode);
     jb_key(b, "outch"); jb_int(b, C.outch);
@@ -830,6 +837,52 @@ static void ch_state(part_t *p, jb_t *b)
     jb_ch(b, ']');
 }
 
+/* ------------------------------------------------------------------ undo (pattern edits) */
+#define NUNDO 48
+static struct { int slot; pat_t p; } UNDO[NUNDO];
+static int un_n, un_top, un_slot = -1; static char un_key[16]; static double un_t;
+int cm_save_req;                                           /* SAVE: the shell writes the file at once */
+static double now_s(void) { struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); return ts.tv_sec + ts.tv_nsec * 1e-9; }
+/* remember a slot before it changes; the same knob turned again within 1.5 s is one step */
+static void undo_push_slot(int slot, const char *key)
+{
+    double t = now_s();
+    if (key && *key && un_n && !strcmp(key, un_key) && un_slot == slot && t - un_t < 1.5) { un_t = t; return; }
+    UNDO[un_top].slot = slot; UNDO[un_top].p = C.pat[slot];
+    un_top = (un_top + 1) % NUNDO; if (un_n < NUNDO) un_n++;
+    snprintf(un_key, sizeof un_key, "%s", key ? key : ""); un_slot = slot; un_t = t;
+}
+static void undo_push(const char *key) { undo_push_slot(C.cur, key); }
+static int undo_count(void) { return un_n; }
+static void pattern_reload(void)                           /* the current pattern changed under us: sound, tempo */
+{
+    all_off(0);
+    if (P()->last < 1) P()->last = 16;
+    if (C.sel >= P()->last) C.sel = 0;
+    sound_load(); env_apply();
+    cm_set_bpm(P()->bpm10 / 10.0);
+    live_chord_from_keys(); if (C.live_n) refresh(0, 1);
+    cm_dirty();
+}
+static int undo_pop(void)
+{
+    if (!un_n) return 0;
+    un_top = (un_top + NUNDO - 1) % NUNDO; un_n--;
+    int s = UNDO[un_top].slot;
+    C.pat[s] = UNDO[un_top].p; un_key[0] = 0; un_slot = -1;
+    if (s != C.cur) { all_off(0); pattern_switch(s, 0); }
+    pattern_reload();
+    return 1;
+}
+static void pat_stock(int slot, pat_t *out)                /* the factory pattern of one slot */
+{
+    static pat_t keep[NPAT];
+    memcpy(keep, C.pat, sizeof keep);
+    factory();
+    *out = C.pat[slot];
+    memcpy(C.pat, keep, sizeof keep);
+}
+
 static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
 static int ch_set(part_t *p, const char *k, const js_t *m)
 {
@@ -840,6 +893,9 @@ static int ch_set(part_t *p, const char *k, const js_t *m)
         const char *f = js_strv(m, "f");
         if (!f) return 0;
         int changed = 1;
+        static const char *const NOUNDO[] = {"outport", "engine", "chordmode", "outch", "inch", "local", "strum", "oct", "pchange", "hold", 0};
+        int un = 1; for (int i = 0; NOUNDO[i]; i++) if (!strcmp(f, NOUNDO[i])) un = 0;
+        if (un) undo_push(f);
         if (!strcmp(f, "set")) t->set = clampi(v, 0, cs_count() - 1);
         else if (!strcmp(f, "key")) t->key = clampi(v, -12, 12);
         else if (!strcmp(f, "style")) { t->style = clampi(v, 0, ph_nstyles() - 1); all_off(0); refresh(0, 1); }
@@ -892,8 +948,8 @@ static int ch_set(part_t *p, const char *k, const js_t *m)
     if (!strcmp(k, "edit")) { C.edit = v; if (C.edit) C.rec = 0; cm_dirty(); return 1; }
     if (!strcmp(k, "rec")) { C.rec = v; if (C.rec) C.edit = 0; cm_dirty(); return 1; }
     if (!strcmp(k, "sel")) {
-        C.sel = clampi(v, 0, NSTEP - 1);
-        if (C.sel >= t->last) t->last = C.sel + 1;
+        if (v >= t->last) return 1;                        /* (beyond the pattern's length: set LENGTH first) */
+        C.sel = clampi(v, 0, t->last - 1);
         step_t *s = &t->st[C.sel];
         if (!CK.playing && s->n > 0 && js_num(m, "hear", 0)) {   /* (audition the step's chord) */
             int nn[4]; for (int i = 0; i < s->n; i++) nn[i] = s->note[i];
@@ -904,28 +960,62 @@ static int ch_set(part_t *p, const char *k, const js_t *m)
         cm_dirty(); return 1;
     }
     if (!strcmp(k, "unhear")) { if (!CK.playing && !C.live_n) { block_stop(0); chord_set(0, NULL, 0, "", 0, 0, 0); } return 1; }
-    if (!strcmp(k, "tie")) { step_tie(C.sel); C.sel = (C.sel + 1) % t->last; cm_dirty(); return 1; }
-    if (!strcmp(k, "rest")) { step_t *s = &t->st[C.sel]; memset(s, 0, sizeof *s); s->style = -1; C.sel = (C.sel + 1) % t->last; cm_dirty(); return 1; }
+    if (!strcmp(k, "tie")) { undo_push(NULL); step_tie(C.sel); C.sel = (C.sel + 1) % t->last; cm_dirty(); return 1; }
+    if (!strcmp(k, "rest")) { undo_push(NULL); step_t *s = &t->st[C.sel]; memset(s, 0, sizeof *s); s->style = -1; C.sel = (C.sel + 1) % t->last; cm_dirty(); return 1; }
     if (!strcmp(k, "stepstyle")) {                       /* the step's own phrase (-1 = the pattern's) */
+        undo_push(NULL);
         step_t *s = &t->st[C.sel]; s->style = (signed char)clampi(v, -1, ph_nstyles() - 1); s->var = (signed char)clampi((int)js_num(m, "var", 0), 0, 7);
         cm_dirty(); return 1;
     }
-    if (!strcmp(k, "clearpat")) { all_off(0); char nm[16]; snprintf(nm, sizeof nm, "%s", t->name); int sd = t->sound; pat_default(t, C.cur); t->sound = sd; snprintf(t->name, sizeof t->name, "%s", nm); cm_dirty(); return 1; }
+    if (!strcmp(k, "clearpat")) { undo_push(NULL); all_off(0); char nm[16]; snprintf(nm, sizeof nm, "%s", t->name); int sd = t->sound; pat_default(t, C.cur); t->sound = sd; snprintf(t->name, sizeof t->name, "%s", nm); cm_dirty(); return 1; }
     if (!strcmp(k, "copypat")) {
         int to = clampi(v, 0, NPAT - 1);
-        if (to != C.cur) { C.pat[to] = *t; snprintf(C.pat[to].name, sizeof C.pat[to].name, "%.12s+", t->name); }
+        if (to != C.cur) { undo_push_slot(to, NULL); C.pat[to] = *t; snprintf(C.pat[to].name, sizeof C.pat[to].name, "%.12s+", t->name); }
         cm_dirty(); return 1;
     }
     if (!strcmp(k, "random")) {
+        undo_push(NULL);
         if (!CK.playing) all_off(0);
         gen_random();
         if (C.sel >= P()->last) C.sel = 0;
         refresh(0, 1);                                     /* (a held chord goes on, in the new style) */
         cm_dirty(); return 1;
     }
+    if (!strcmp(k, "undo")) { undo_pop(); return 1; }
+    if (!strcmp(k, "resetpat")) {                          /* back to the stock (factory) pattern: steps, sound, every value */
+        undo_push(NULL); pat_t f; pat_stock(C.cur, &f); C.pat[C.cur] = f; pattern_reload(); return 1;
+    }
+    if (!strcmp(k, "initpat")) {                           /* INIT: an empty 16-step pattern, every value at its default */
+        undo_push(NULL); pat_default(t, C.cur); t->used = 1; pattern_reload(); return 1;
+    }
+    if (!strcmp(k, "savepat")) { cm_save_req = 1; return 1; }
     if (!strcmp(k, "gen")) { C.gen = !!v; cm_dirty(); return 1; }
     if (!strcmp(k, "panic")) { all_off(0); C.nheld = 0; C.live_n = 0; C.cur_n = 0; C.E->reset(C.eng); return 1; }
     return 0;
+}
+
+void cm_factory_patterns(void)
+{
+    all_off(0);
+    factory();
+    C.cur = 0; C.next = -1; C.sel = 0; un_n = 0; un_top = 0; un_slot = -1;
+    sound_load(); env_apply();
+    cm_set_bpm(P()->bpm10 / 10.0);
+    cm_dirty();
+}
+/* every start: pattern 1-1 in CHORD mode, chord set 1 Pop Bright, voicing F#4, PULSE 7 OFFBEAT, Synth Brass */
+void cm_chord_startup(void)
+{
+    all_off(0);
+    C.cur = 0; C.chordmode = 1; C.sel = 0;
+    pat_t *t = &C.pat[0];
+    int snd = find_sound("Synth Brass");
+    if (t->sound != snd) { t->sound = snd; t->vol = 88; t->ea = t->ed = t->es = t->er = t->eg = t->cut = t->res = t->sub = -1; }
+    t->set = find_set("Pop Bright"); t->center = 66; t->style = find_style("PULSE"); t->var = 6;
+    if (t->last < 1) t->last = 16;
+    sound_load(); env_apply();
+    cm_set_bpm(t->bpm10 / 10.0);
+    cm_dirty();
 }
 
 /* ------------------------------------------------------------------ save / load */
@@ -933,6 +1023,7 @@ static void ch_save(part_t *p, jb_t *b)
 {
     (void)p;
     jb_key(b, "cur"); jb_int(b, C.cur);
+    jb_key(b, "lenfix"); jb_int(b, 1);
     jb_key(b, "chordmode"); jb_int(b, C.chordmode);
     jb_key(b, "outch"); jb_int(b, C.outch);
     jb_key(b, "inch"); jb_int(b, C.inch);
@@ -974,6 +1065,7 @@ static void ch_load(part_t *p, const js_t *o)
     C.engine = clampi((int)js_num(o, "engine", 0), 0, 1);
     const char *op = js_strv(o, "outport"); snprintf(C.outport, sizeof C.outport, "%s", op ? op : "");
     const js_t *a = js_get(o, "patterns");
+    int fixed = (int)js_num(o, "lenfix", 0);
     if (a && a->type == JS_ARR) {
         int i = 0;
         for (const js_t *q = a->kid; q && i < NPAT; q = q->next, i++) {
@@ -1001,6 +1093,14 @@ static void ch_load(part_t *p, const js_t *o)
                 const js_t *sy = js_at(e, 3), *va = js_at(e, 4);
                 x->style = (signed char)(sy ? clampi((int)sy->num, -1, ph_nstyles() - 1) : -1);
                 x->var = (signed char)(va ? clampi((int)va->num, 0, 7) : 0);
+            }
+            /* (before 2.0.2 clicking a step past the end grew the pattern: a stock pattern whose extra steps
+               are all empty gets its own length back, once) */
+            pat_t *fac = &C.pat[i];
+            if (!fixed && t->last > fac->last && !strcmp(t->name, fac->name)) {
+                int empty = 1;
+                for (int k = fac->last; k < t->last; k++) if (t->st[k].n || t->st[k].tie) empty = 0;
+                if (empty) t->last = fac->last;
             }
             if (t->used) C.pat[i] = *t;                    /* (an unused slot keeps its factory pattern) */
         }

@@ -244,6 +244,13 @@ await page.selectOption("#instsel", ""); await W(150);
 ok(await page.evaluate(() => document.activeElement === document.body), "after picking an instrument the menu lets go of the keyboard (Mac keys play at once)");
 { const before = (await st()).chord.live_n; await page.keyboard.down("d"); await W(250); const lit = await page.$$eval("#piano .ch", e => e.length); await page.keyboard.up("d"); await W(150);
   ok(lit === 4, "Mac key plays right after the instrument menu (" + lit + " chord notes)"); }
+{ // PLAY with a real mouse press, while the live view redraws 60 times a second: every click counts
+  let okc = 0;
+  for (let i = 0; i < 6; i++) { const was = !!(await lv()).play; const b = await page.$("#bplay"); const bb = await b.boundingBox();
+    await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await page.mouse.down(); await W(120); await page.mouse.up(); await W(350);
+    if (!!(await lv()).play !== was) okc++; }
+  ok(okc === 6, `PLAY: every press toggles play / stop (${okc}/6)`);
+  if ((await lv()).play) { await page.click("#bstop"); await W(300); } }
 section = "SETUP";
 await page.click("#bsetup"); await W(300);
 ok(await page.isVisible("#support") && /Windows version/.test(await page.textContent("#support")) && await page.isVisible("#bsponsor"), "SETUP: donation note with the Sponsor button");
@@ -274,6 +281,20 @@ await page.click("#skins .skin:nth-child(1)"); await W(300); ok((await st()).g.s
 await page.screenshot({ path: SHOTS + "/11-setup.png" });
 await page.click("#bsetupx");
 await page.click('.knob[data-f="dly"]', { modifiers: ["Alt"] }); await W(200); ok((await st()).learn === "dly", "Alt-click a knob = MIDI learn"); await send({ t: "learn", s: "" });
+
+section = "Sequencer: length, UNDO, SAVE, RESET, INIT";
+await send({ t: "stop" }); await send({ t: "pattern", v: 0 }); await W(200); await page.click("#breset"); await W(300);
+ok((await st()).chord.p.last === 16, "RESET: stock 1-1 has 16 steps");
+await page.click("#steps .st:nth-child(40)"); await W(200); ok((await st()).chord.p.last === 16, "clicking step 40 doesn't make the pattern longer");
+await page.click('#seqbtns .sel[data-f="last"] .val'); await W(100);
+await page.keyboard.press("Meta+A"); await page.keyboard.type("24"); await page.keyboard.press("Enter"); await W(300);
+ok((await st()).chord.p.last === 24, "Length typed in: 24 (" + (await st()).chord.p.last + ")");
+ok((await txt('#seqbtns .sel[data-f="last"] .val')) === "24", "Length shows 24");
+await page.click("#bundo"); await W(300); ok((await st()).chord.p.last === 16, "UNDO: back to 16");
+await page.click("#binit"); await W(300); { const p = (await st()).chord.p; ok(p.last === 16 && p.name === "1-1", "INIT: an empty 16-step pattern"); }
+await page.click("#chordname"); await page.keyboard.press("Meta+z"); await W(300); ok((await st()).chord.p.name === "Pop Drive", "⌘Z undoes INIT");
+await page.click("#bsave"); await W(200); ok((await txt("#flk")) === "SAVED", "SAVE flashes SAVED");
+await page.screenshot({ path: SHOTS + "/13-seqbtns.png" });
 
 section = "Keys and shortcuts";
 const t0 = (await st()).chord.p.bpm10; const tb = await page.$("#tempo").then(e => e.boundingBox());

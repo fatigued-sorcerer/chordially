@@ -317,9 +317,21 @@ int sh_init(const char *log_path, const char *data_dir)
         char old[1100]; snprintf(old, sizeof old, "%s/chordmaster.json", data_dir);
         s = read_file(old); if (s) sh_log("store: taking over %s", old);
     }
-    if (s) { int r = cm_load(s); sh_log("store: %s %s", r == 0 ? "loaded" : "could NOT read", data_path); free(s); }
+    int had_file = s != NULL;
+    char bk[1200]; snprintf(bk, sizeof bk, "%s/chordially-before-build%d.json", data_dir, CM_BUILD);
+    if (s) {
+        int r = cm_load(s); sh_log("store: %s %s", r == 0 ? "loaded" : "could NOT read", data_path);
+        if (cm_loaded_build < CM_BUILD) { FILE *f = fopen(bk, "wb"); if (f) { fputs(s, f); fclose(f); } }   /* (the old file, as it was) */
+        free(s);
+    }
     else sh_log("store: no %s yet (factory patterns)", data_path);
+    if (had_file && cm_loaded_build < CM_BUILD) {   /* a new build: every pattern back to stock (the old file is kept) */
+        cm_factory_patterns();
+        sh_log("store: new build %d (file from %d): stock patterns, old patterns kept in %s", CM_BUILD, cm_loaded_build, bk);
+    }
+    cm_chord_startup();
     last_saved = cm_save();
+    if (had_file && cm_loaded_build < CM_BUILD) { free(last_saved); last_saved = NULL; save_now(); }   /* (write the fresh start at once) */
     devices();
     return 0;
 }
@@ -328,7 +340,8 @@ void sh_tick(void)
     static int t;
     t++;
     if (ain_changed() || t % 3 == 0) devices();
-    if (t % 5 == 0) save_now();
+    if (cm_save_req) { cm_save_req = 0; free(last_saved); last_saved = NULL; save_now(); }
+    else if (t % 5 == 0) save_now();
     { char line[600]; ain_tick(line, sizeof line); if (line[0] && t % 10 == 0) sh_log("audio in: %s", line); }
     if (t <= 5 || t % 60 == 0) { sh_log("audio: %ld callbacks of %ld..%ld frames", cbs, cb_min, cb_max); }
 }

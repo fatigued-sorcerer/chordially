@@ -540,11 +540,12 @@ void cm_set_adevs(const char *json) { pthread_mutex_lock(&LK); if (strcmp(ADEVS,
 void cm_ext_present(int k, int on) { pthread_mutex_lock(&LK); ext_set_present(k, on); pthread_mutex_unlock(&LK); }
 
 /* ------------------------------------------------------------------ save / load */
+int cm_loaded_build = CM_BUILD;
 char *cm_save(void)
 {
     pthread_mutex_lock(&LK);
     jb_t b; jb_init(&b);
-    jb_raw(&b, "{\"app\":\"Chordially\",\"version\":1,\"g\":"); global_json(&b);
+    jb_raw(&b, "{\"app\":\"Chordially\",\"version\":1,\"build\":"); jb_int(&b, CM_BUILD); jb_raw(&b, ",\"g\":"); global_json(&b);
     jb_raw(&b, ",\"cc\":[");
     for (int i = 0; i < NCC; i++) { if (i) jb_ch(&b, ','); jb_ch(&b, '['); jb_int(&b, CC[i].cc); jb_ch(&b, ','); jb_str_utf8(&b, CC[i].target); jb_ch(&b, ']'); }
     jb_raw(&b, "],\"clock\":[");
@@ -559,6 +560,7 @@ int cm_load(const char *json)
 {
     js_t *m = js_parse(json);
     if (!m) return -1;
+    cm_loaded_build = (int)js_num(m, "build", 0);
     pthread_mutex_lock(&LK);
     const js_t *g = js_get(m, "g");
     if (g) {

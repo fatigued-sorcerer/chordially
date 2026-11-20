@@ -15,6 +15,11 @@ void cm_midi_in(int port_uid, int st, int d1, int d2);   /* MIDI thread */
 void cm_set_ports(const char *json);                /* {"ins":[{id,name}],"outs":[{id,name}]} */
 char *cm_state(int force);                          /* the full state when it changed (or force), else NULL; free() */
 char *cm_live(void);                                /* the live view (60 / s); free() */
+#define CM_BUILD 22                                 /* = CFBundleVersion: a new build starts from the stock patterns */
+extern int cm_loaded_build;                         /* the build that wrote the loaded file (0 = before 2.0.2) */
+void cm_factory_patterns(void);                     /* all 64 patterns back to stock */
+void cm_chord_startup(void);                        /* the start-up state (pattern 1-1 …) */
+extern int cm_save_req;                             /* set by SAVE: write the file now */
 char *cm_save(void);                                /* everything to keep; free() */
 int cm_load(const char *json);
 int cm_ext_count(void);

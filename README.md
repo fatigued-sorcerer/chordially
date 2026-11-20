@@ -15,7 +15,7 @@ No complicated routing. No setup headaches. Just plug in, pick a progression, an
 ## Features
 - **One key, one chord:** 64 chord sets, the key you press is the bass, the three notes above are voice-led so chords move smoothly.
 - **Phrases:** 8 styles × 8 variations — arpeggios, pulses, rhythms, strums — with gate, swing and strum controls.
-- **Chord sequencer:** 64 patterns of up to 64 steps, step edit, real-time record, RANDOM and GENERATIVE.
+- **Chord sequencer:** 64 patterns of up to 64 steps (type the length in), step edit, real-time record, RANDOM and GENERATIVE, UNDO, RESET to the stock pattern and INIT.
 - **Built-in synth:** 62 chord sounds in the style of classic 80s polysynths; ADSR, filter, resonance, sub, EQ, pan.
 - **Plugins:** any Audio Unit instrument, plus one AU insert effect; built-in delay, reverb and master compressor.
 - **S-1 / T-8:** USB audio mixed in, per-box AUDIO / MIDI IN / SYNC, works with aggregate devices.
@@ -27,7 +27,7 @@ No complicated routing. No setup headaches. Just plug in, pick a progression, an
 | ![](docs/screenshots/sound-effects.jpg) | ![](docs/screenshots/s1-t8.jpg) |
 
 ## Download
-Get **Chordially.dmg** from the [Releases](https://github.com/fatigued-sorcerer/chordially/releases) page, open it and drag Chordially to Applications.
+Get **Chordially.dmg** from the [latest release](https://github.com/fatigued-sorcerer/chordially/releases/latest), open it and drag Chordially to Applications. The app is not notarized: on first launch go to System Settings → Privacy & Security and click **Open Anyway**.
 
 Chordially isn't notarized by Apple (it's a free hobby project), so the first launch needs one extra step:
 open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**.
@@ -50,7 +50,7 @@ It compiles everything, runs the self-test, and puts `Chordially.app` and `Chord
 
 ## Support
 Chordially is free. If it makes your jams better, you can support its development:
-**[Sponsor on GitHub](https://github.com/sponsors/fatigued-sorcerer)**
+**[Sponsor on GitHub](https://github.com/sponsors/fatigued-sorcerer)** · **[☕ Buy me a coffee on Ko-fi](https://ko-fi.com/H0N52AZX84)**
 
 ## Licence
 GPL-3.0-only — see [LICENSE](LICENSE). © 2026 Pavel Vild.

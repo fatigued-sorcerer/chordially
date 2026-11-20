@@ -17,7 +17,7 @@ static void *audio(void *a) { (void)a; float L[256], R[256]; struct timespec t; 
 static void *reader(void *a) { (void)a; char *line = NULL; size_t cap = 0; while (getline(&line, &cap, stdin) > 0) { line[strcspn(line, "\n")] = 0; if (!strncmp(line, "MIDI ", 5)) { int a, b, c; if (sscanf(line + 5, "%d %d %d", &a, &b, &c) == 3) cm_midi_in(1, a, b, c); } else if (line[0]) cm_msg(line); } exit(0); }
 int main(void) {
   setvbuf(stdout, NULL, _IOLBF, 0);
-  cm_init(); cm_set_midi_out(mo); cm_set_ain(ain);
+  cm_init(); cm_chord_startup(); cm_set_midi_out(mo); cm_set_ain(ain);
   cm_set_ports("{\"ins\":[{\"id\":1,\"name\":\"KeyStep 37\"}],\"outs\":[{\"id\":2,\"name\":\"S-1\"},{\"id\":3,\"name\":\"T-8\"},{\"id\":4,\"name\":\"IAC Driver Bus 1\"}]}");
   cm_set_adevs("[[\"S-1\",2,0],[\"LIttle S-1 and T-8\",4,1],[\"MacBook Air Microphone\",1,0]]");
   cm_ext_present(0, 1);

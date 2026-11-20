@@ -230,6 +230,53 @@ int main(void) {
     l1 = cm_live(); CHECK(strstr(l1, "\"chord\":\"Am") != NULL, "HOLD: the next key replaces the chord"); free(l1);
     msg("{\"t\":\"set\",\"f\":\"hold\",\"v\":0}"); render(0.2, &pk, &nan);
     l1 = cm_live(); CHECK(strstr(l1, "\"snd\":[]") && strstr(l1, "\"chord\":\"\""), "HOLD off releases the chord"); free(l1); render(3, &pk, &nan); }
+  /* sequencer: typed length, steps past the end, UNDO, RESET to stock, INIT, SAVE, old saves get their length back */
+  { char *s0;
+#define PL(x) (s0 = cm_state(1), x = strstr(s0, "\"last\":") ? atoi(strstr(s0, "\"last\":") + 7) : -1, free(s0))
+    int L; msg("{\"t\":\"stop\"}"); msg("{\"t\":\"pattern\",\"v\":0}"); msg("{\"t\":\"resetpat\"}"); PL(L);
+    CHECK(L == 16, "stock pattern 1-1 has 16 steps (%d)", L);
+    msg("{\"t\":\"sel\",\"v\":39}"); PL(L); CHECK(L == 16, "clicking step 40 doesn't grow the pattern (%d)", L);
+    msg("{\"t\":\"set\",\"f\":\"last\",\"v\":40}"); PL(L); CHECK(L == 40, "typed length 40 (%d)", L);
+    msg("{\"t\":\"undo\"}"); PL(L); CHECK(L == 16, "UNDO: length back to 16 (%d)", L);
+    s0 = cm_state(1); char *n0 = strdup(strstr(s0, "\"steps\":") ? strstr(s0, "\"steps\":") : ""); { char *e = strstr(n0, "]]"); if (e) e[2] = 0; } free(s0);
+    msg("{\"t\":\"clearpat\"}"); msg("{\"t\":\"random\"}");
+    msg("{\"t\":\"set\",\"f\":\"cut\",\"v\":10}"); msg("{\"t\":\"set\",\"f\":\"cut\",\"v\":20}"); msg("{\"t\":\"set\",\"f\":\"cut\",\"v\":30}");
+    msg("{\"t\":\"undo\"}"); s0 = cm_state(1); CHECK(strstr(s0, "\"fc\":30") == NULL && strstr(s0, "\"cut\":30") == NULL, "UNDO: one knob turn is one step"); free(s0);
+    msg("{\"t\":\"undo\"}"); msg("{\"t\":\"undo\"}");
+    s0 = cm_state(1); CHECK(strstr(s0, n0) != NULL, "UNDO x3: the steps are back"); free(s0); free(n0);
+    msg("{\"t\":\"initpat\"}"); PL(L); s0 = cm_state(1);
+    CHECK(L == 16 && strstr(s0, "\"name\":\"1-1\"") != NULL, "INIT: empty 16-step pattern"); free(s0);
+    msg("{\"t\":\"resetpat\"}"); s0 = cm_state(1); CHECK(strstr(s0, "Pop Drive") != NULL, "RESET: the stock pattern is back"); free(s0);
+    msg("{\"t\":\"pattern\",\"v\":3}"); msg("{\"t\":\"pattern\",\"v\":0}");
+    msg("{\"t\":\"copypat\",\"v\":5}"); msg("{\"t\":\"undo\"}"); msg("{\"t\":\"pattern\",\"v\":5}"); s0 = cm_state(1);
+    CHECK(strstr(s0, "Pop Drive+") == NULL, "UNDO takes back a copy into another slot"); free(s0); msg("{\"t\":\"pattern\",\"v\":0}");
+    cm_save_req = 0; msg("{\"t\":\"savepat\"}"); CHECK(cm_save_req == 1, "SAVE asks the shell to write now"); cm_save_req = 0;
+    /* an old save where 1-1 grew to 19 steps with nothing in 17..19 */
+    char *sv = cm_save(); char *q = strstr(sv, "\"lenfix\":1,"); if (q) memmove(q, q + 11, strlen(q + 11) + 1);
+    q = strstr(sv, "\"last\":16"); if (q) { q[7] = '1'; q[8] = '9'; }
+    CHECK(cm_load(sv) == 0, "old save loads"); PL(L); CHECK(L == 16, "an old save's grown stock pattern gets 16 steps back (%d)", L);
+    free(sv);
+    sv = cm_save(); q = strstr(sv, "\"last\":16"); if (q) { q[7] = '1'; q[8] = '9'; }
+    cm_load(sv); PL(L); CHECK(L == 19, "a new save keeps a length you chose (%d)", L); free(sv);
+    msg("{\"t\":\"resetpat\"}");
+#undef PL
+  }
+  /* start-up: pattern 1-1, CHORD mode, 1 Pop Bright, voicing F#4, PULSE 7 OFFBEAT, Synth Brass — even after a save that differs */
+  { msg("{\"t\":\"pattern\",\"v\":9}"); msg("{\"t\":\"set\",\"f\":\"chordmode\",\"v\":0}");
+    cm_chord_startup(); char *s0 = cm_state(1);
+    CHECK(strstr(s0, "\"pat\":0,") != NULL, "start-up: pattern 1-1");
+    CHECK(strstr(s0, "\"chordmode\":1") != NULL, "start-up: CHORD mode");
+    CHECK(strstr(s0, "\"set\":0,") != NULL && strstr(s0, "\"center\":66") != NULL, "start-up: 1 Pop Bright, voicing F#4");
+    CHECK(strstr(s0, "Synth Brass") != NULL, "start-up: Synth Brass shown");
+    free(s0); }
+  /* a new build: the file says which build wrote it; every pattern can go back to stock */
+  { char *sv = cm_save(); CHECK(strstr(sv, "\"build\":22") != NULL, "the save says build 22"); 
+    char *q = strstr(sv, "\"build\":22,"); if (q) memmove(q, q + 11, strlen(q + 11) + 1);
+    cm_load(sv); CHECK(cm_loaded_build == 0, "an old file (no build) reads as build 0"); free(sv);
+    msg("{\"t\":\"pattern\",\"v\":2}"); msg("{\"t\":\"clearpat\"}"); msg("{\"t\":\"set\",\"f\":\"name\",\"s\":\"MINE\"}");
+    cm_factory_patterns(); cm_chord_startup(); char *s0 = cm_state(1);
+    CHECK(strstr(s0, "MINE") == NULL && strstr(s0, "\"pat\":0,") != NULL && strstr(s0, "\"undo\":0") != NULL, "stock patterns: edits gone, pattern 1-1, no undo left"); free(s0);
+    sv = cm_save(); cm_load(sv); CHECK(cm_loaded_build == 22, "a new file reads as build 22"); free(sv); }
   /* save / load round trip */
   char *sv = cm_save(); size_t len = strlen(sv);
   msg("{\"t\":\"clearpat\"}");
