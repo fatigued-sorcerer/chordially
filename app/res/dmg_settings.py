@@ -1,0 +1,19 @@
+# dmgbuild settings for Chordially (python3 -m dmgbuild -s res/dmg_settings.py -D app=... -D bg=... -D icon=... "Chordially 2.0" out.dmg)
+app = defines["app"]
+files = [app]
+symlinks = {"Applications": "/Applications"}
+icon = defines.get("icon")
+background = defines.get("bg")
+format = "UDZO"
+filesystem = "HFS+"
+window_rect = ((240, 160), (660, 400))
+default_view = "icon-view"
+show_status_bar = False
+show_tab_view = False
+show_toolbar = False
+show_pathbar = False
+show_sidebar = False
+icon_size = 112
+text_size = 13
+icon_locations = {"Chordially.app": (170, 200), "Applications": (490, 200)}
+hide_extension = ["Chordially.app"]

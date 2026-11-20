@@ -51,14 +51,35 @@ if grep -q "ALL PASS" "$LOG/selftest.txt"; then
   rm -rf "$JA"; ditto "$APP" "$JA" && codesign --force -s - "$JA" >> "$LOG/build.log" 2>&1; touch "$JA"; RUN="$JA"
   /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$JA" > /dev/null 2>&1   # (new icon shown at once, not the cached one)
   VER=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$JA/Contents/Info.plist" 2>/dev/null || echo 1.0)
-  STAGE="build/dmg"; rm -rf "$STAGE"; mkdir -p "$STAGE"; ditto "$JA" "$STAGE/Chordially.app"; ln -s /Applications "$STAGE/Applications"
-  cp licenses/GPL-3.0.txt "$STAGE/LICENSE (GPL-3.0).txt" 2>/dev/null; cp ../NOTICE.md "$STAGE/NOTICE.md" 2>/dev/null
-  rm -f "$ROOT/Chordially.dmg"
-  if hdiutil create -volname "Chordially $VER" -srcfolder "$STAGE" -fs HFS+ -format UDZO -imagekey zlib-level=9 -ov "$ROOT/Chordially.dmg" >> "$LOG/build.log" 2>&1; then
-    if [ -n "$CHORDIALLY_DMG_BACKUP" ] || [ -d "$HOME/Claude Projects" ]; then BK="$HOME/Downloads/DMG-backup-$(date +%Y-%m-%d)"; mkdir -p "$BK" && cp "$ROOT/Chordially.dmg" "$BK/Chordially-$VER.dmg" && echo "Chordially-$VER.dmg copied to $BK"; fi   # (optional backup copy)
+  # the installer: a styled drag-to-Applications DMG (dmgbuild writes the Finder layout itself: no Finder prompt)
+  DMG="$ROOT/Chordially.dmg"; rm -f "$DMG"
+  VENV="build/dmgvenv"   # (dmgbuild in its own little Python environment: Homebrew's Python refuses "pip install --user")
+  if [ ! -x "$VENV/bin/python3" ] || ! "$VENV/bin/python3" -c "import dmgbuild" 2>/dev/null; then
+    echo "Installing dmgbuild (one time) ..."; rm -rf "$VENV"; python3 -m venv "$VENV" > "$LOG/dmgbuild.txt" 2>&1 && "$VENV/bin/python3" -m pip install --quiet --disable-pip-version-check dmgbuild >> "$LOG/dmgbuild.txt" 2>&1
   fi
-  rm -rf "$STAGE"
-  echo "Chordially.app and Chordially.dmg are ready in the Chordially folder."
+  if "$VENV/bin/python3" -m dmgbuild -s res/dmg_settings.py -D app="$JA" -D bg="res/dmg_bg.png" -D icon="$JA/Contents/Resources/Chordially.icns" "Chordially $VER" "$DMG" >> "$LOG/dmgbuild.txt" 2>&1; then
+    echo "Styled DMG installer built."
+  else
+    echo "dmgbuild did not work (log/dmgbuild.txt): plain DMG instead."
+    STAGE="build/dmg"; rm -rf "$STAGE"; mkdir -p "$STAGE"; ditto "$JA" "$STAGE/Chordially.app"; ln -s /Applications "$STAGE/Applications"
+    hdiutil create -volname "Chordially $VER" -srcfolder "$STAGE" -fs HFS+ -format UDZO -imagekey zlib-level=9 -ov "$DMG" >> "$LOG/build.log" 2>&1; rm -rf "$STAGE"
+  fi
+  if [ -f "$DMG" ] && { [ -n "$CHORDIALLY_DMG_BACKUP" ] || [ -d "$HOME/Claude Projects" ]; }; then BK="$HOME/Downloads/DMG-backup-$(date +%Y-%m-%d)"; mkdir -p "$BK" && cp "$DMG" "$BK/Chordially-$VER.dmg" && echo "Chordially-$VER.dmg copied to $BK"; fi   # (optional backup copy)
+  # install: /Applications, a Desktop shortcut, and (for a developer copy) the data folder beside the project
+  if [ -z "$CHORDIALLY_NO_INSTALL" ]; then
+    pkill -x Chordially 2>/dev/null; sleep 0.5
+    if ditto "$JA" "/Applications/Chordially.app.new" 2>/dev/null; then
+      rm -rf "/Applications/Chordially.app" && mv "/Applications/Chordially.app.new" "/Applications/Chordially.app" && echo "Installed /Applications/Chordially.app"
+      RUN="/Applications/Chordially.app"
+      /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$RUN" > /dev/null 2>&1
+      ln -sfn "$RUN" "$HOME/Desktop/Chordially" && echo "Desktop shortcut -> $RUN"
+      AS="$HOME/Library/Application Support/Chordially"
+      if [ -d "$ROOT/Chordially data" ] && [ ! -e "$AS" ]; then ln -s "$ROOT/Chordially data" "$AS" && echo "Data: $AS -> $ROOT/Chordially data"; fi
+    else
+      echo "Could not write /Applications: running from the project folder."
+    fi
+  fi
+  echo "Chordially.app, Chordially.dmg (installer) ready; Chordially is in Applications and on the Desktop."
 else
   echo "Self-test did not pass: Chordially.app NOT replaced; running the build from its folder. Tell Claude."; RUN="$APP"
 fi

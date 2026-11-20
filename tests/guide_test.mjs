@@ -240,8 +240,13 @@ for (const f of ["audio", "midi_in", "start"]) {
   await page.selectOption(".strip[data-k='1'] .adev", ""); await W(200); ok((await st()).ext[1].adev === "", "back to AUTO"); }
 
 ok(!(await page.isVisible("#instwin")), "SOUND: EDIT hidden with the internal synth");
+await page.selectOption("#instsel", ""); await W(150);
+ok(await page.evaluate(() => document.activeElement === document.body), "after picking an instrument the menu lets go of the keyboard (Mac keys play at once)");
+{ const before = (await st()).chord.live_n; await page.keyboard.down("d"); await W(250); const lit = await page.$$eval("#piano .ch", e => e.length); await page.keyboard.up("d"); await W(150);
+  ok(lit === 4, "Mac key plays right after the instrument menu (" + lit + " chord notes)"); }
 section = "SETUP";
 await page.click("#bsetup"); await W(300);
+ok(await page.isVisible("#support") && /Windows version/.test(await page.textContent("#support")) && await page.isVisible("#bsponsor"), "SETUP: donation note with the Sponsor button");
 await page.selectOption("#outport", "S-1"); await W(200); ok((await st()).chord.outport === "S-1", "chord notes out to S-1");
 await page.selectOption("#outch", "3"); await W(200); ok((await st()).chord.outch === 3, "out channel 3");
 await page.click("#blocal"); await W(200); ok((await st()).chord.local === 0, "built-in synth OFF"); await page.click("#blocal");

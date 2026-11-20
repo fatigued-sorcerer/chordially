@@ -5,10 +5,20 @@
 import Cocoa
 import WebKit
 
+/* the web view takes the first click even when the window is not in front (no "click twice": PLAY, pads, knobs) */
+final class FirstMouseWebView: WKWebView {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
 final class PageBridge: NSObject, WKScriptMessageHandler {
     func userContentController(_ ucc: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let s = message.body as? String else { return }
         if message.name != "cm" { sh_page_log(s); return }
+        if s.hasPrefix("{\"t\":\"open\"") {   // a web link from the page (donations): the default browser
+            if let d = s.data(using: .utf8), let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+               let u = o["url"] as? String, u.hasPrefix("https://"), let url = URL(string: u) { NSWorkspace.shared.open(url) }
+            return
+        }
         if s.hasPrefix("{\"t\":\"plug") { insertHost.handle(s) } else { sh_msg(s) }   // (the AU insert: insert.swift)
     }
 }
@@ -44,7 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let vis = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1512, height: 945)
         let w = min(vis.width, 1512), h = min(vis.height, 980)
         let frame = NSRect(x: vis.midX - w / 2, y: vis.midY - h / 2, width: w, height: h)
-        web = WKWebView(frame: NSRect(origin: .zero, size: frame.size), configuration: cfg)
+        web = FirstMouseWebView(frame: NSRect(origin: .zero, size: frame.size), configuration: cfg)
         if #available(macOS 13.3, *) { web.isInspectable = true }
         window = NSWindow(contentRect: frame, styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "Chordially"

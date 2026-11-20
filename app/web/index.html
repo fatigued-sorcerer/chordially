@@ -65,6 +65,11 @@
   color-scheme: dark;
 }
 .knob.na { opacity: .35; pointer-events: none; }
+#support { margin: 6px 0 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--acc-soft); }
+#support .sup-t { font-weight: 700; margin-bottom: 4px; color: var(--strong); }
+#support .sup-x { font-size: 12px; color: var(--text); line-height: 1.45; }
+#support .sup-b { display: flex; gap: 8px; margin-top: 10px; }
+#support .sup-b button { padding: 6px 12px; }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.25 -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif; user-select: none; -webkit-user-select: none; overflow: hidden; }
 #app { display: grid; grid-template-rows: auto auto auto auto minmax(0, 1fr); gap: var(--gap); padding: var(--gap); height: 100%; }
@@ -585,7 +590,7 @@ body.ext-inst .knob.plugonly { display: block !important; }
 </table>
 
 <h2 id="h-about">About and licence</h2>
-<p><b>Chordially 2.0</b> · © 2026 Pavel Vild.</p>
+<p><b>Chordially 2.0.1</b> · © 2026 Pavel Vild.</p>
 <p>Chordially is free software: you can use, study, share and change it under the terms of the <b>GNU General Public License, version 3</b> (GPL-3.0-only). It comes with <b>no warranty</b>. The full licence text is in the file <i>LICENSE</i> that comes with the app and its source code.</p>
 <p><b>An independent project.</b> Chordially is not made, endorsed, sponsored or supported by Roland Corporation, Arturia, or any other manufacturer named here, and is not connected with them. It contains no code, firmware, samples, sound data, presets, chord-set tables, artwork or manual text from any of them. The synth engines, sounds, chord sets, phrases, interface and help are its own.</p>
 <p><b>Trademarks.</b> Roland, J-6, S-1, T-8 and AIRA are trademarks of Roland Corporation. Arturia and KeyStep are trademarks of Arturia. Apple, Mac, macOS and Audio Units are trademarks of Apple Inc. All other names are the property of their owners. They are used here only to say which instruments Chordially works with, or to describe its general idea, and imply no affiliation.</p>
@@ -594,6 +599,9 @@ body.ext-inst .knob.plugonly { display: block !important; }
 
 <div id="setup"><div class="panel" id="setupbox">
   <div style="display:flex;justify-content:space-between;align-items:center"><h2>SETUP</h2><button id="bsetupx">CLOSE</button></div>
+  <div id="support"><div class="sup-t">Enjoying Chordially?</div>
+    <div class="sup-x">Chordially is free and open source, made in spare time. If you like it, or you would like to see a <b>Windows version</b>, please consider a small donation to keep the development going. Thank you!</div>
+    <div class="sup-b"><button id="bsponsor">♥ Sponsor on GitHub</button><button id="bkofi">☕ Buy me a coffee</button></div></div>
   <h3>SKIN</h3>
   <div class="skins" id="skins"></div>
   <h3>MIDI · CHORD PART</h3>
@@ -992,7 +1000,19 @@ function applySkin(i) { document.documentElement.dataset.skin = (SKINS[i] || SKI
 })();
 
 /* ------------------------------------------------------------------ transport, tempo */
-$("#bplay").onclick = () => send({ t: LV && LV.play ? "stop" : "play" });
+/* donations: links open in the default browser (the app passes "open" messages to macOS) */
+const SPONSOR_URL = "https://github.com/sponsors/fatigued-sorcerer", KOFI_URL = "";
+$("#bsponsor").onclick = () => send({ t: "open", url: SPONSOR_URL });
+if (KOFI_URL) $("#bkofi").onclick = () => send({ t: "open", url: KOFI_URL }); else $("#bkofi").style.display = "none";
+/* keys belong to the instrument: a menu or button keeps no keyboard focus after use, so the Mac keys (and Space)
+   play again at once (a focused menu swallowed the keys until something else was clicked) */
+document.addEventListener("change", e => { if (e.target.tagName === "SELECT") setTimeout(() => e.target.blur(), 0); }, true);
+document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("button"); if (b) setTimeout(() => b.blur(), 0); }, true);
+let tpWant = null, tpAt = 0;   /* what PLAY last asked for, until the core's live view confirms it (fast clicks never cancel themselves) */
+$("#bplay").onclick = () => {
+  const now = Date.now(), cur = tpWant !== null && now - tpAt < 500 ? tpWant : !!(LV && LV.play);
+  tpWant = !cur; tpAt = now; send({ t: tpWant ? "play" : "stop" });
+};
 $("#bstop").onclick = () => send({ t: "stop" });
 $("#brec").onclick = () => send({ t: "rec", v: S.chord.rec ? 0 : 1 });
 $("#bchord").onclick = () => send({ t: "set", f: "chordmode", v: S.chord.chordmode ? 0 : 1 });

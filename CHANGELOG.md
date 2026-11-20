@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.1
+- Menus and buttons no longer keep the keyboard: the Mac keys play right after choosing an instrument.
+- The window takes the first click (PLAY never needs a second click).
+- Donation note in SETUP; styled DMG installer.
+
 ## 2.0.0 — first public release
 - One key plays a voice-led chord from 64 chord sets; KEY, VOICING, CHORD on/off, HOLD.
 - Phrases: 8 styles × 8 variations (arpeggios, pulses, rhythms, strums), GATE, GATE RND, SWING, STRUM, OCTAVE.
