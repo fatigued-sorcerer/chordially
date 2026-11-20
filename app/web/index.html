@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<!-- Chordially: the interface. One page, no build step. It talks to the native core with JSON messages:
+     window.webkit.messageHandlers.cm.postMessage(text) out, window.__cmIn([...]) in (state / live / devices). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Chordially</title>
+<style>
+:root { --r: 8px; --gap: 10px; }
+
+/* ---- skins (SETUP > SKIN): every colour of the page comes from these variables ---- */
+:root, [data-skin="studio"] {
+  --bg: #0d0e10; --panel: #16181b; --panel2: #1d2024; --panel3: #23272c; --line: #2a2e33; --line-hover: #3b4148; --text: #d9dde2; --dim: #7c848d; --faint: #565d65; --strong: #fff;
+  --acc: #ff7a1a; --acc2: #3fd0c9; --acc-soft: rgba(255,122,26,.16); --on-acc: #111; --red: #ff4d4d; --ok: #4cd964; --dot-off: #444; --overlay: rgba(0,0,0,.6);
+  --lcd: #0b1410; --lcd-line: #1f3a2c; --lcdt: #ffb066; --lcdt-85: rgba(255,176,102,.85); --lcdt-dim: rgba(255,176,102,.55); --lcdt-mid: rgba(255,176,102,.35); --lcdt-faint: rgba(255,176,102,.12); --lcd-glow: rgba(255,140,40,.35); --lcd-inset: rgba(255,140,40,.05);
+  --key-w: #e9ecef; --key-w-line: #9aa1a8; --key-b: #1b1d20; --key-b-line: #000; --key-label: #888; --key-ch-w: #ffd9b8; --key-ch-b: #9a4d1c;
+  --knob-face: #22262a; --knob-track: #2f343a; --knob-ptr: #e9ecef;
+  --hl-bg: #2a1d12; --hl-text: #ffcfa3; --hl-line: #4a311d; --tie-a: #3a2a1c; --tie-b: #2a2018; --tie-line: #b5561a; --m1: #3fd0c9; --m2: #ffb066;
+  color-scheme: dark;
+}
+[data-skin="paper"] {   /* white and blue, soft: off-white panels, no pure white glare, calm blue accents */
+  --bg: #e7ebf0; --panel: #f4f6f9; --panel2: #eaeef3; --panel3: #e1e7ef; --line: #d2d9e2; --line-hover: #b6c2d1; --text: #1e2a3a; --dim: #66758a; --faint: #9aa6b6; --strong: #0f1b2d;
+  --acc: #2f6fd6; --acc2: #12a3b4; --acc-soft: rgba(47,111,214,.14); --on-acc: #fff; --red: #d9483b; --ok: #1fa65a; --dot-off: #c3ccd7; --overlay: rgba(30,42,58,.35);
+  --lcd: #e3ecf8; --lcd-line: #c6d6ec; --lcdt: #1d4fa3; --lcdt-85: rgba(29,79,163,.85); --lcdt-dim: rgba(29,79,163,.6); --lcdt-mid: rgba(29,79,163,.3); --lcdt-faint: rgba(29,79,163,.12); --lcd-glow: rgba(47,111,214,.18); --lcd-inset: rgba(47,111,214,.05);
+  --key-w: #fbfcfd; --key-w-line: #c3ccd7; --key-b: #2b3442; --key-b-line: #1a2230; --key-label: #8a97a8; --key-ch-w: #c9dcf7; --key-ch-b: #4f7fc9;
+  --knob-face: #ffffff; --knob-track: #cfd7e1; --knob-ptr: #2b3442;
+  --hl-bg: #dce8fa; --hl-text: #1d4fa3; --hl-line: #a9c4ec; --tie-a: #e2ebf8; --tie-b: #edf2f9; --tie-line: #2f6fd6; --m1: #12a3b4; --m2: #2f6fd6;
+  color-scheme: light;
+}
+[data-skin="papyrus"] {  /* warm paper white with ink blue: soft cream panels, no glare, calm navy accents */
+  --bg: #ece5d3; --panel: #f6f1e4; --panel2: #efe8d7; --panel3: #e7dfca; --line: #dcd2bb; --line-hover: #c4b797; --text: #23324a; --dim: #6c7486; --faint: #a8a593; --strong: #142240;
+  --acc: #2a5ca8; --acc2: #2f8c9c; --acc-soft: rgba(42,92,168,.13); --on-acc: #fbf8f0; --red: #b8483a; --ok: #3b8a52; --dot-off: #d3c9b1; --overlay: rgba(35,50,74,.32);
+  --lcd: #1f2d47; --lcd-line: #16213a; --lcdt: #f1e6c8; --lcdt-85: rgba(241,230,200,.85); --lcdt-dim: rgba(241,230,200,.55); --lcdt-mid: rgba(241,230,200,.3); --lcdt-faint: rgba(241,230,200,.12); --lcd-glow: rgba(241,220,170,.25); --lcd-inset: rgba(241,220,170,.04);
+  --key-w: #fbf7ec; --key-w-line: #cbbfa3; --key-b: #26324a; --key-b-line: #151e30; --key-label: #8f8a78; --key-ch-w: #cad8ef; --key-ch-b: #4a74b8;
+  --knob-face: #fbf7ec; --knob-track: #dcd2bb; --knob-ptr: #23324a;
+  --hl-bg: #dfe3ea; --hl-text: #2a5ca8; --hl-line: #b4c2d9; --tie-a: #e4e3dc; --tie-b: #efeadc; --tie-line: #2a5ca8; --m1: #2f8c9c; --m2: #2a5ca8;
+  color-scheme: light;
+}
+[data-skin="arctic"] {  /* brighter white with a deeper navy-blue accent */
+  --bg: #eef2f6; --panel: #fafbfc; --panel2: #f0f3f7; --panel3: #e8edf3; --line: #dbe2ea; --line-hover: #b9c6d6; --text: #14213a; --dim: #5d6f87; --faint: #a3afbf; --strong: #0b1630;
+  --acc: #1747a6; --acc2: #00a0c6; --acc-soft: rgba(23,71,166,.12); --on-acc: #fff; --red: #c8382e; --ok: #16a05a; --dot-off: #c9d2dc; --overlay: rgba(20,33,58,.3);
+  --lcd: #14213a; --lcd-line: #0d1628; --lcdt: #9cc4ff; --lcdt-85: rgba(156,196,255,.85); --lcdt-dim: rgba(156,196,255,.55); --lcdt-mid: rgba(156,196,255,.3); --lcdt-faint: rgba(156,196,255,.12); --lcd-glow: rgba(110,160,255,.35); --lcd-inset: rgba(110,160,255,.05);
+  --key-w: #ffffff; --key-w-line: #c7d0db; --key-b: #1d2a44; --key-b-line: #0f1828; --key-label: #8d9aab; --key-ch-w: #cfe0fb; --key-ch-b: #3f6dc4;
+  --knob-face: #ffffff; --knob-track: #d3dbe5; --knob-ptr: #14213a;
+  --hl-bg: #dfe9fb; --hl-text: #1747a6; --hl-line: #adc5ef; --tie-a: #e3ebfa; --tie-b: #eff3fa; --tie-line: #1747a6; --m1: #00a0c6; --m2: #1747a6;
+  color-scheme: light;
+}
+[data-skin="midnight"] {  /* deep navy with blue light */
+  --bg: #0b1220; --panel: #111a2b; --panel2: #172235; --panel3: #1c2940; --line: #23324b; --line-hover: #34486a; --text: #d7e1f0; --dim: #7f8ea8; --faint: #52627d; --strong: #fff;
+  --acc: #4c8dff; --acc2: #39d0e6; --acc-soft: rgba(76,141,255,.16); --on-acc: #fff; --red: #ff5a5a; --ok: #3fd47a; --dot-off: #3a4760; --overlay: rgba(0,0,0,.55);
+  --lcd: #08101e; --lcd-line: #1b2c4a; --lcdt: #8db8ff; --lcdt-85: rgba(141,184,255,.85); --lcdt-dim: rgba(141,184,255,.55); --lcdt-mid: rgba(141,184,255,.3); --lcdt-faint: rgba(141,184,255,.12); --lcd-glow: rgba(76,141,255,.4); --lcd-inset: rgba(76,141,255,.05);
+  --key-w: #dfe6f1; --key-w-line: #8d9ab0; --key-b: #141c2b; --key-b-line: #000; --key-label: #7f8ea8; --key-ch-w: #b9d1ff; --key-ch-b: #3a66b8;
+  --knob-face: #1a2539; --knob-track: #2b3a55; --knob-ptr: #dfe6f1;
+  --hl-bg: #15284a; --hl-text: #b9d1ff; --hl-line: #2c4a7d; --tie-a: #1a2d4f; --tie-b: #14223b; --tie-line: #4c8dff; --m1: #39d0e6; --m2: #4c8dff;
+  color-scheme: dark;
+}
+[data-skin="graphite"] {  /* neutral grey, white text, blue accent */
+  --bg: #1b1d21; --panel: #24272c; --panel2: #2c3036; --panel3: #32363d; --line: #3a3f47; --line-hover: #4c525c; --text: #e6e8eb; --dim: #9aa1ab; --faint: #6b727c; --strong: #fff;
+  --acc: #5aa0ff; --acc2: #7fd8ff; --acc-soft: rgba(90,160,255,.16); --on-acc: #0e1622; --red: #ff6b5e; --ok: #4fd383; --dot-off: #4a4f57; --overlay: rgba(0,0,0,.55);
+  --lcd: #15181c; --lcd-line: #2c3138; --lcdt: #f2f5f8; --lcdt-85: rgba(242,245,248,.85); --lcdt-dim: rgba(242,245,248,.5); --lcdt-mid: rgba(242,245,248,.3); --lcdt-faint: rgba(242,245,248,.1); --lcd-glow: rgba(90,160,255,.35); --lcd-inset: rgba(90,160,255,.04);
+  --key-w: #eef0f2; --key-w-line: #9aa1ab; --key-b: #202328; --key-b-line: #000; --key-label: #8a919b; --key-ch-w: #c3dcff; --key-ch-b: #3d74c9;
+  --knob-face: #30343b; --knob-track: #444a53; --knob-ptr: #f2f5f8;
+  --hl-bg: #22344f; --hl-text: #c3dcff; --hl-line: #34507a; --tie-a: #263750; --tie-b: #222c3b; --tie-line: #5aa0ff; --m1: #7fd8ff; --m2: #5aa0ff;
+  color-scheme: dark;
+}
+.knob.na { opacity: .35; pointer-events: none; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.25 -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif; user-select: none; -webkit-user-select: none; overflow: hidden; }
+#app { display: grid; grid-template-rows: auto auto auto auto minmax(0, 1fr); gap: var(--gap); padding: var(--gap); height: 100%; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
+.lbl { font-size: 10px; letter-spacing: .12em; color: var(--dim); text-transform: uppercase; }
+button { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+button:hover { border-color: var(--line-hover); }
+button.on { background: var(--acc); color: var(--on-acc); border-color: var(--acc); font-weight: 600; }
+button.rec.on { background: var(--red); border-color: var(--red); color: #fff; }
+select { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+input[type=text] { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; width: 120px; }
+
+/* top bar */
+#top { display: flex; align-items: center; gap: 10px; padding: 8px 12px; }
+#logo { font-weight: 800; letter-spacing: .18em; font-size: 15px; margin-right: 10px; }
+#logo b { color: var(--acc); }
+#top .sp { flex: 1; }
+#tempo { font: 600 18px ui-monospace, Menlo, monospace; min-width: 96px; text-align: center; cursor: ns-resize; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel2); }
+#clk { font-size: 11px; padding: 3px 8px; border-radius: 10px; border: 1px solid var(--line); color: var(--dim); }
+#clk.ext { color: var(--on-acc); background: var(--acc2); border-color: var(--acc2); }
+.tbtn { min-width: 44px; font-size: 15px; }
+
+/* LCD */
+#lcd { display: grid; grid-template-columns: 1.3fr 1fr 1.2fr; gap: 0; background: var(--lcd); border: 1px solid var(--lcd-line); border-radius: var(--r); padding: 8px 16px; font-family: ui-monospace, Menlo, monospace; color: var(--lcdt); box-shadow: inset 0 0 40px var(--lcd-inset); min-height: 88px; align-items: center; }
+#lcd .cell { padding: 0 12px; border-right: 1px solid var(--lcdt-faint); position: relative; }
+#lcd .cell:last-child { border: 0; }
+#lcd .k { font-size: 10px; letter-spacing: .14em; color: var(--lcdt-dim); }
+#chordname { font-size: 40px; font-weight: 700; letter-spacing: .02em; line-height: 1.05; text-shadow: 0 0 14px var(--lcd-glow); white-space: nowrap; overflow: hidden; }
+#chordnotes { font-size: 14px; margin-top: 4px; color: var(--lcdt-85); }
+#patname { font-size: 22px; font-weight: 700; margin: 2px 0 6px; white-space: nowrap; overflow: hidden; }
+#stepbar { display: grid; grid-template-columns: repeat(16, 1fr); gap: 2px; margin-top: 6px; }
+#stepbar i { height: 7px; background: var(--lcdt-faint); border-radius: 1px; }
+#stepbar i.u { background: var(--lcdt-mid); }
+#stepbar i.p { background: var(--lcdt); box-shadow: 0 0 6px var(--lcdt); }
+#lcdinfo { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 13px; }
+#lcdinfo span:nth-child(odd) { color: var(--lcdt-dim); font-size: 10px; letter-spacing: .14em; padding-top: 2px; }
+#flash { position: absolute; inset: 0 12px; background: var(--lcd); display: none; flex-direction: column; justify-content: center; }
+#flash.show { display: flex; }
+#flash .v { font-size: 30px; font-weight: 700; }
+
+/* piano */
+#pianowrap { padding: 8px 10px 8px; }
+#piano { position: relative; height: 80px; }
+#piano .w, #piano .b { position: absolute; top: 0; border-radius: 0 0 4px 4px; cursor: pointer; }
+#piano .w { height: 100%; background: var(--key-w); border: 1px solid var(--key-w-line); z-index: 1; }
+#piano .b { height: 62%; background: var(--key-b); border: 1px solid var(--key-b-line); z-index: 2; }
+#piano .w.c::after { content: attr(data-n); position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: 9px; color: var(--key-label); }
+/* the three marks: chord notes (pale fill), sounding now (solid + glow), the key you hold (cyan bar at the bottom) */
+#piano .ch.w { background: var(--key-ch-w); } #piano .ch.b { background: var(--key-ch-b); }
+#piano .so.w { background: var(--acc); box-shadow: 0 0 14px var(--acc); } #piano .so.b { background: var(--acc); box-shadow: 0 0 10px var(--acc); }
+#piano .hd::before { content: ""; position: absolute; left: 3px; right: 3px; bottom: 3px; height: 9px; border-radius: 3px; background: var(--acc2); box-shadow: 0 0 8px var(--acc2); }
+#piano .b.hd::before { left: 2px; right: 2px; }
+#piano .w.c::after { z-index: 1; }
+#pianolegend { display: flex; gap: 16px; font-size: 11px; color: var(--dim); margin-top: 6px; }
+#pianolegend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 5px; }
+
+/* pads */
+#pads { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; padding: 7px 10px; }
+.pad { background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 4px 5px; text-align: center; cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; min-width: 0; }
+.pad .n { font-weight: 700; font-size: 14px; line-height: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.pad .s { font-size: 10px; line-height: 13px; color: var(--dim); margin-top: 2px; font-family: ui-monospace, Menlo, monospace; white-space: nowrap; }
+.pad .kb { font-size: 9px; line-height: 11px; color: var(--faint); margin-top: 1px; white-space: nowrap; }
+.pad.on { border-color: var(--acc); background: var(--hl-bg); }
+.pad:active { transform: translateY(1px); }
+
+/* bottom: controls + sequencer + ext */
+#bottom { display: grid; grid-template-columns: 1fr 350px; gap: var(--gap); min-height: 0; }
+#left { display: grid; grid-template-rows: auto 1fr; gap: var(--gap); min-height: 0; }
+/* the control grid: every control = a caption on top (one height, centred) + the control under it (one height) */
+#controls { display: grid; grid-template-columns: 0.86fr 1.04fr 1.06fr 1.04fr; gap: 0; padding: 8px 2px; }
+.grp { padding: 0 12px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.grp:last-child { border: 0; }
+.gl { font-size: 10px; letter-spacing: .14em; color: var(--acc); font-weight: 700; height: 24px; line-height: 24px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ghx { display: flex; gap: 4px; align-items: center; flex: 1; justify-content: flex-end; min-width: 0; letter-spacing: 0; font-weight: 400; }
+.ghx select { height: 24px; min-width: 0; flex: 1; max-width: 220px; font-size: 12px; }
+.ghx button { height: 24px; padding: 0 8px; font-size: 12px; display: inline-flex; align-items: center; }
+.row { display: flex; gap: 6px; align-items: flex-start; justify-content: space-between; min-width: 0; }
+.lbl.c, .sel > .lbl, .ctl > .lbl, .knob .kl { display: block; height: 12px; line-height: 12px; margin-bottom: 4px; text-align: center; white-space: nowrap; }
+.sel { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.sel.w100 { flex: 1 1 100%; }
+.sel .box, .ctl .box { display: flex; align-items: center; gap: 4px; height: 28px; }
+.sel .box button, .ctl .box button { height: 28px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.sel .box .val { flex: 1; min-width: 34px; height: 28px; line-height: 26px; text-align: center; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.ctl { display: flex; flex-direction: column; align-items: center; }
+.ctl > button { height: 28px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.ctl.grow { flex: 1 1 100%; align-items: stretch; min-width: 0; }
+#bhold { height: 28px; width: 100%; }
+.ctl.grow select { flex: 1; min-width: 0; height: 28px; }
+.knob { width: 48px; text-align: center; cursor: ns-resize; flex: 0 0 48px; }
+.knob svg { width: 40px; height: 40px; display: block; margin: 0 auto; }
+.knob .kl { font-size: 9px; letter-spacing: .02em; color: var(--dim); overflow: visible; }
+.knob .kv { height: 13px; line-height: 13px; margin-top: 2px; font-size: 10px; color: var(--text); font-family: ui-monospace, Menlo, monospace; white-space: nowrap; }
+.plugnote { flex: 1; font-size: 11px; color: var(--dim); line-height: 1.45; text-align: center; padding: 4px 6px; }
+.plugonly { display: none !important; }
+body.ext-inst .aura { display: none !important; }
+body.ext-inst .plugonly { display: flex !important; }
+body.ext-inst .knob.plugonly { display: block !important; }
+.knob.spacer { visibility: hidden; pointer-events: none; }
+.tabs { display: flex; gap: 0; height: 22px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; align-self: center; }
+.tabs button { height: 20px; border: 0; border-radius: 0; padding: 0 14px; font-size: 10px; letter-spacing: .12em; background: var(--panel2); color: var(--dim); display: inline-flex; align-items: center; justify-content: center; }
+.tabs button + button { border-left: 1px solid var(--line); }
+.tabs button.on { background: var(--acc); color: var(--on-acc); font-weight: 700; }
+.eqcurve { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.eqcurve svg { width: 100%; height: 40px; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; }
+#controls[data-tab="adj"] .tab-eq, #controls[data-tab="eq"] .tab-adj { display: none !important; }
+#envgraph { display: block; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; height: 28px; }
+.knob.learn .kl { color: var(--acc2); }
+
+#seq { display: grid; grid-template-columns: 196px 1fr; gap: 10px; padding: 8px 10px; min-height: 0; }
+#banks .lbl, #stepsw .lbl { margin-bottom: 6px; }
+#patgrid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; }
+#patgrid div { height: 18px; border-radius: 3px; background: var(--panel2); border: 1px solid var(--line); font-size: 9px; color: var(--dim); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+#patgrid div.u { color: var(--text); background: var(--panel3); }
+#patgrid div.cur { background: var(--acc); color: var(--on-acc); border-color: var(--acc); font-weight: 700; }
+#patgrid div.nx { border-color: var(--acc); animation: blink .5s steps(2) infinite; }
+@keyframes blink { 50% { border-color: var(--line); } }
+#patinfo { display: none; }
+.stephdr { display: flex; align-items: center; gap: 8px; height: 24px; margin-bottom: 6px; }
+.stephdr .lbl { flex: 1; margin: 0 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stephdr input, .stephdr select { height: 24px; padding: 0 6px; font-size: 12px; }
+#steps { display: grid; grid-template-columns: repeat(16, 1fr); gap: 3px; }
+.st { height: 26px; border-radius: 4px; background: var(--panel2); border: 1px solid var(--line); font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center; cursor: pointer; white-space: nowrap; overflow: hidden; position: relative; padding: 0 2px; }
+.st.off { opacity: .28; }
+.st.tie { background: linear-gradient(90deg, var(--tie-a), var(--tie-b)); color: transparent; }
+.st.tie::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: var(--tie-line); }
+.st.has { background: var(--hl-bg); color: var(--hl-text); border-color: var(--hl-line); }
+.st.pl { box-shadow: 0 0 0 2px var(--acc) inset; }
+.st.sel { outline: 2px solid var(--acc2); outline-offset: -2px; }
+.st .ss { position: absolute; top: 1px; right: 3px; font-size: 7px; color: var(--acc2); }
+.st .sn { position: absolute; top: 1px; left: 3px; font-size: 7px; color: var(--faint); font-weight: 400; }
+#seqbtns { display: flex; gap: 6px 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+#seqbtns > * { height: 28px; }
+#seqbtns button, #seqbtns select { height: 28px; padding-top: 0; padding-bottom: 0; }
+#seqbtns .small { display: inline-flex; align-items: center; margin-left: 6px; }
+#seqbtns .sel .box { height: 28px; }
+
+#ext { display: grid; grid-template-rows: auto auto 1fr; gap: var(--gap); min-height: 0; }
+.strip { padding: 8px 10px; }
+.strip .hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.strip .hdr .nm { font-weight: 700; letter-spacing: .1em; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dot-off); }
+.dot.on { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.meter { height: 6px; background: var(--panel2); border-radius: 3px; overflow: hidden; flex: 1; }
+.meter i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--m1), var(--m2) 75%, var(--red)); }
+.strip .row { align-items: center; }
+.strip .xcol { display: flex; flex-direction: column; gap: 4px; margin-left: 4px; flex: none; width: 172px; }
+.strip .xtg { display: flex; gap: 3px; }
+.strip .xtg button { flex: 1; padding: 3px 0; font-size: 9.5px; letter-spacing: .03em; min-width: 0; }
+.strip .xrow { display: flex; align-items: center; gap: 3px; }
+.strip .xrow.dim { opacity: .45; }
+.strip .xrow .small { width: 30px; flex: none; }
+.strip .xrow select { flex: none; min-width: 0; }
+.strip .xrow select.adev { flex: 1; width: 0; }
+.strip .xrow select.ach { width: 62px; }
+.strip .xrow select.thin { width: 66px; }
+.strip .xrow select.thch { width: 52px; }
+.strip .xrow .arr { color: var(--dim); font-size: 11px; }
+.small { font-size: 11px; color: var(--dim); }
+#master { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.meters { flex: 1; display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
+.mrow { display: grid; grid-template-columns: 44px 1fr; align-items: center; gap: 6px; }
+.meter.gr i { background: var(--acc2); margin-left: auto; }
+.gbtn { height: 22px; padding: 0 10px; font-size: 11px; letter-spacing: .08em; display: inline-flex; align-items: center; justify-content: center; }
+#master.comp-off .row:last-of-type .knob { opacity: .55; }
+
+/* setup */
+#setup { position: fixed; inset: 0; background: var(--overlay); display: none; align-items: center; justify-content: center; z-index: 50; }
+#setup.show { display: flex; }
+#setupbox { width: 860px; max-height: 88vh; overflow: auto; padding: 16px 20px; }
+#setupbox h2 { margin: 0 0 12px; font-size: 15px; letter-spacing: .14em; }
+#setupbox h3 { margin: 14px 0 8px; font-size: 11px; letter-spacing: .14em; color: var(--acc); }
+.form { display: grid; grid-template-columns: 170px 1fr; gap: 8px 14px; align-items: center; }
+.ports { display: flex; flex-wrap: wrap; gap: 6px; }
+.cclist { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.cclist div { display: grid; grid-template-columns: 1fr 46px 58px 24px; align-items: center; gap: 4px; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font-size: 11px; height: 34px; }
+.cclist div span:nth-child(2) { text-align: center; }
+.cclist div span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cclist div button { height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.cclist div.lrn { border-color: var(--acc2); }
+.help { font-size: 11px; color: var(--dim); line-height: 1.5; }
+.skins { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.skin { border: 2px solid var(--line); border-radius: 8px; padding: 6px; cursor: pointer; background: var(--panel2); display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.skin.on { border-color: var(--acc); }
+.skin .pv { height: 46px; border-radius: 5px; display: grid; grid-template-rows: 1fr 14px; overflow: hidden; border: 1px solid rgba(128,128,128,.25); }
+.skin .pv .t { display: flex; align-items: center; justify-content: center; font: 700 13px ui-monospace, Menlo, monospace; }
+.skin .pv .k { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
+.skin .nm { text-align: center; font-size: 11px; font-weight: 600; height: 14px; line-height: 14px; }
+.help b { color: var(--text); }
+
+/* help */
+#help { position: fixed; inset: 0; background: var(--overlay); display: none; align-items: center; justify-content: center; z-index: 55; }
+#help.show { display: flex; }
+#helpbox { width: 1040px; max-width: 94vw; height: 88vh; display: grid; grid-template-columns: 210px 1fr; overflow: hidden; }
+#helpnav { border-right: 1px solid var(--line); padding: 14px 8px; overflow: auto; }
+#helpnav a { display: block; padding: 6px 10px; border-radius: 6px; color: var(--text); text-decoration: none; font-size: 12px; cursor: pointer; }
+#helpnav a:hover, #helpnav a.on { background: var(--panel2); color: var(--acc); }
+#helptext { padding: 16px 26px 40px; overflow: auto; line-height: 1.55; font-size: 13px; user-select: text; -webkit-user-select: text; }
+#helptext h2 { font-size: 17px; letter-spacing: .08em; margin: 22px 0 8px; color: var(--acc); }
+#helptext h2:first-child { margin-top: 0; }
+#helptext h3 { font-size: 13px; margin: 14px 0 4px; }
+#helptext b { color: var(--strong); }
+#helptext kbd { font: 11px ui-monospace, Menlo, monospace; background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+#helptext table { border-collapse: collapse; margin: 6px 0 10px; font-size: 12px; }
+#helptext td, #helptext th { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }
+#helptext th { color: var(--dim); font-weight: 600; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -2px; margin-right: 4px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top" class="panel">
+    <div id="logo">CHORD<b>IALLY</b></div>
+    <button class="tbtn" id="bplay" title="Play / stop (Space)">▶</button>
+    <button class="tbtn" id="bstop" title="Stop (and all notes off)">■</button>
+    <button class="tbtn rec" id="brec" title="Real-time record: chords you play go into the playing step">●</button>
+    <div id="tempo" title="Tempo: drag up / down (Shift: fine)">120.0</div>
+    <span id="clk">INT</span>
+    <div class="sp"></div>
+    <span class="small" id="kbhint">Mac keys A W S E D F T G Y H U J K · Z / X octave · Space play</span>
+    <button id="bhelp" title="The manual (also: ? key)">HELP</button>
+    <button id="bsetup">SETUP</button>
+  </div>
+
+  <div id="lcd">
+    <div class="cell">
+      <div class="k">CHORD <span id="keyto"></span></div>
+      <div id="chordname">—</div>
+      <div id="chordnotes">&nbsp;</div>
+      <div id="flash"><div class="k" id="flk"></div><div class="v" id="flv"></div></div>
+    </div>
+    <div class="cell">
+      <div class="k">PATTERN <span id="patnum">1-1</span></div>
+      <div id="patname">—</div>
+      <div class="k">STEP <span id="stepnum">1</span> / <span id="steplast">16</span> · BAR <span id="barnum">1</span></div>
+      <div id="stepbar"></div>
+    </div>
+    <div class="cell">
+      <div id="lcdinfo">
+        <span>STYLE</span><b id="i_style">—</b>
+        <span>SOUND</span><b id="i_sound">—</b>
+        <span>SET</span><b id="i_set">—</b>
+        <span>KEY</span><b id="i_key">C</b>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="pianowrap">
+    <div id="piano"></div>
+    <div id="pianolegend"><span><i style="background:var(--key-ch-w)"></i><b>light</b> = the notes of the chord your key selected</span><span><i style="background:var(--acc)"></i><b>solid</b> = sounding right now (an arp lights them one by one)</span><span><i style="background:var(--acc2)"></i><b>bar</b> = the key you are holding (in CHORD mode it picks the chord, it is not one of its notes)</span></div>
+  </div>
+
+  <div class="panel" id="pads"></div>
+
+  <div id="bottom">
+    <div id="left">
+      <div class="panel" id="controls" data-tab="adj">
+        <div class="grp"><div class="gl">CHORD</div>
+          <div class="row">
+            <div class="sel w100" data-f="set"><span class="lbl">CHORD SET</span><div class="box"><button>◀</button><div class="val"></div><button>▶</button></div></div>
+          </div>
+          <div class="row">
+            <div class="sel" data-f="key" style="flex:0 0 108px"><span class="lbl">KEY</span><div class="box"><button>◀</button><div class="val"></div><button>▶</button></div></div>
+            <div class="ctl"><span class="lbl">MODE</span><button id="bchord" title="CHORD on: one key = one chord. Off: the keys you hold are the chord">CHORD</button></div>
+            <div class="knob" data-f="center" data-min="55" data-max="76" data-def="66" data-name="VOICING"></div>
+          </div>
+          <div class="row">
+            <div class="ctl grow"><span class="lbl">LATCH</span><button id="bhold" title="HOLD: the chord keeps playing after you let go; the next key replaces it; HOLD off releases it">HOLD</button></div>
+          </div>
+        </div>
+        <div class="grp"><div class="gl">PHRASE</div>
+          <div class="row">
+            <div class="sel w100" data-f="style"><span class="lbl">STYLE</span><div class="box"><button>◀</button><div class="val"></div><button>▶</button></div></div>
+          </div>
+          <div class="row">
+            <div class="sel w100" data-f="var"><span class="lbl">VARIATION</span><div class="box"><button>◀</button><div class="val"></div><button>▶</button></div></div>
+          </div>
+          <div class="row">
+            <div class="knob" data-f="gate" data-min="10" data-max="100" data-def="80" data-name="GATE" data-unit="%"></div>
+            <div class="knob" data-f="grnd" data-min="0" data-max="100" data-def="0" data-name="GATE RND" data-unit="%"></div>
+            <div class="knob" data-f="swing" data-min="0" data-max="100" data-def="0" data-name="SWING" data-unit="%"></div>
+            <div class="knob" data-f="strum" data-min="0" data-max="80" data-def="18" data-name="STRUM" data-unit="ms" data-scope="part"></div>
+            <div class="knob" data-f="oct" data-min="-2" data-max="2" data-def="0" data-name="OCTAVE" data-scope="part"></div>
+          </div>
+        </div>
+        <div class="grp"><div class="gl gh">SOUND<span class="ghx"><select id="instsel" title="INSTRUMENT: INTERNAL = the built-in synth, or one of your Audio Unit instruments"><option value="">INTERNAL</option></select><button id="instwin" title="Open the instrument plugin's window" style="display:none">EDIT</button></span></div>
+          <div class="row aura">
+            <div class="sel" data-f="sound"><span class="lbl">SOUND</span><div class="box"><button>◀</button><div class="val"></div><button>▶</button></div></div>
+            <div class="ctl" title="The envelope as set now (attack, decay, sustain level, release)"><span class="lbl">ENVELOPE</span><svg id="envgraph" viewBox="0 0 100 28" width="100" height="28"></svg></div>
+          </div>
+          <div class="row plugonly"><div class="plugnote" id="plugnote">The plugin's own sound: <b>EDIT</b> opens its window. Phrases, insert, delay, reverb, MIDI out, EQ and PAN work as usual.</div></div>
+          <div class="tabs aura" id="sndtabs"><button data-tab="adj" class="on">ADJUST</button><button data-tab="eq">EQ</button></div>
+          <div class="row aura tab-adj">
+            <div class="knob" data-f="ea" data-env="0" data-min="0" data-max="127" data-def="-1" data-name="ATTACK"></div>
+            <div class="knob" data-f="ed" data-env="1" data-min="0" data-max="127" data-def="-1" data-name="DECAY"></div>
+            <div class="knob" data-f="es" data-env="2" data-min="0" data-max="127" data-def="-1" data-name="SUSTAIN"></div>
+            <div class="knob" data-f="er" data-env="3" data-min="0" data-max="127" data-def="-1" data-name="RELEASE"></div>
+            <div class="knob" data-f="eg" data-env="4" data-min="0" data-max="127" data-def="-1" data-name="EG INT"></div>
+          </div>
+          <div class="row aura tab-adj">
+            <div class="knob" data-f="cut" data-env="5" data-min="0" data-max="127" data-def="-1" data-name="FILTER"></div>
+            <div class="knob" data-f="res" data-env="6" data-min="0" data-max="127" data-def="-1" data-name="RESO"></div>
+            <div class="knob" data-f="sub" data-env="7" data-min="0" data-max="127" data-def="-1" data-name="SUB"></div>
+            <div class="knob" data-f="vol" data-min="0" data-max="127" data-def="80" data-name="VOLUME"></div>
+            <div class="knob" data-f="pan" data-min="0" data-max="127" data-def="64" data-name="PAN" data-pan="1"></div>
+          </div>
+          <div class="row aura tab-eq">
+            <div class="knob" data-f="eql" data-min="0" data-max="127" data-def="64" data-name="LOW" data-db="1"></div>
+            <div class="knob" data-f="eqm" data-min="0" data-max="127" data-def="64" data-name="MID" data-db="1"></div>
+            <div class="knob" data-f="eqh" data-min="0" data-max="127" data-def="64" data-name="HIGH" data-db="1"></div>
+            <div class="knob" data-f="vol" data-min="0" data-max="127" data-def="80" data-name="VOLUME"></div>
+            <div class="knob" data-f="pan" data-min="0" data-max="127" data-def="64" data-name="PAN" data-pan="1"></div>
+          </div>
+          <div class="eqcurve aura tab-eq" title="The EQ curve (20 Hz – 20 kHz, ±12 dB)"><svg id="eqgraph" viewBox="0 0 300 40" preserveAspectRatio="none"></svg><span class="small">200 Hz · 1 kHz · 5 kHz</span></div>
+          <div class="row plugonly">
+            <div class="knob" data-f="vol" data-min="0" data-max="127" data-def="80" data-name="VOLUME"></div>
+            <div class="knob" data-f="pan" data-min="0" data-max="127" data-def="64" data-name="PAN" data-pan="1"></div>
+            <div class="knob" data-f="eql" data-min="0" data-max="127" data-def="64" data-name="LOW" data-db="1"></div>
+            <div class="knob" data-f="eqm" data-min="0" data-max="127" data-def="64" data-name="MID" data-db="1"></div>
+            <div class="knob" data-f="eqh" data-min="0" data-max="127" data-def="64" data-name="HIGH" data-db="1"></div>
+          </div>
+        </div>
+        <div class="grp"><div class="gl">EFFECTS</div>
+          <div class="row">
+            <div class="sel w100" data-f="dly_time" data-scope="g"><span class="lbl">DELAY TIME</span><div class="box"><button>◀</button><div class="val"></div><button>▶</button></div></div>
+          </div>
+          <div class="row">
+            <div class="knob" data-f="dly" data-min="0" data-max="127" data-def="20" data-name="DELAY"></div>
+            <div class="knob" data-f="dly_fb" data-min="0" data-max="127" data-def="50" data-name="FEEDBACK" data-scope="g"></div>
+            <div class="knob" data-f="rev" data-min="0" data-max="127" data-def="40" data-name="REVERB"></div>
+            <div class="knob" data-f="rev_size" data-min="0" data-max="127" data-def="70" data-name="SIZE" data-scope="g"></div>
+            <div class="knob" data-f="rev_tone" data-min="0" data-max="127" data-def="70" data-name="TONE" data-scope="g"></div>
+          </div>
+          <div class="row">
+            <div class="ctl grow"><span class="lbl">AU INSERT</span><div class="box"><select id="plugsel" title="One Audio Unit effect on the chord sound, before the delay / reverb sends"><option value="">— none —</option></select><button id="plugwin" title="Open the plugin's own window">EDIT</button><button id="plugbyp" title="Bypass the plugin">BYP</button></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel" id="seq">
+        <div id="banks">
+          <div class="lbl">Patterns · bank × number <span id="patinfo"></span></div>
+          <div id="patgrid"></div>
+        </div>
+        <div id="stepsw">
+          <div class="stephdr"><span class="lbl">Steps · click to select (Alt-click to hear) · EDIT on: play a chord to write it</span>
+            <span class="small">Name</span><input type="text" id="patrename" placeholder="name" style="width:120px">
+            <select id="copyto" title="Copy this pattern to"></select></div>
+          <div id="steps"></div>
+          <div id="seqbtns">
+            <button id="bedit" title="Step edit: select a step, play a chord, it is written and the cursor moves on">EDIT</button>
+            <button id="btie" title="Hold the previous chord through the selected step">TIE</button>
+            <button id="brest" title="Clear the selected step (silence)">REST</button>
+            <span class="small">Step style</span>
+            <select id="ststyle"></select>
+            <span class="small" style="margin-left:8px">Length</span>
+            <div class="sel" data-f="last" style="width:96px;flex:none"><div class="box"><button>◀</button><div class="val"></div><button>▶</button></div></div>
+            <span class="small">Step</span>
+            <select id="steplen"></select>
+            <span class="small">Change</span>
+            <select id="pchange"><option value="0">END</option><option value="1">STEP</option><option value="2">BAR</option></select>
+            <button id="bclear" title="Clear this pattern (double-click)">CLEAR</button>
+            <button id="brandom" title="A new progression on this chord set and key, with a phrase to match">RANDOM</button>
+            <button id="bgen" title="GENERATIVE: each time the pattern comes round, one or two chords change (the first stays home)">GENERATIVE</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="ext">
+      <div class="panel strip" data-k="0"></div>
+      <div class="panel strip" data-k="1"></div>
+      <div class="panel" id="master">
+        <div class="gl">MASTER</div>
+        <div class="row" style="align-items:center">
+          <div class="knob" data-f="vol" data-scope="g" data-min="0" data-max="127" data-def="100" data-name="LEVEL" data-learn="mvol"></div>
+          <div class="meters">
+            <div class="mrow"><span class="small">CHORD</span><div class="meter" id="m0"><i></i></div></div>
+            <div class="mrow"><span class="small">OUT</span><div class="meter" id="m3"><i></i></div></div>
+            <div class="mrow"><span class="small">COMP</span><div class="meter gr" id="mgr"><i></i></div></div>
+          </div>
+        </div>
+        <div class="gl" style="margin-top:6px">COMPRESSOR<button id="bcomp" class="gbtn" title="The master compressor on / off">OFF</button></div>
+        <div class="row">
+          <div class="knob" data-f="cthr" data-scope="g" data-min="0" data-max="127" data-def="95" data-name="THRESH" data-fmt="thr"></div>
+          <div class="knob" data-f="crat" data-scope="g" data-min="0" data-max="127" data-def="50" data-name="RATIO" data-fmt="rat"></div>
+          <div class="knob" data-f="catk" data-scope="g" data-min="0" data-max="127" data-def="64" data-name="ATTACK" data-fmt="atk"></div>
+          <div class="knob" data-f="crel" data-scope="g" data-min="0" data-max="127" data-def="64" data-name="RELEASE" data-fmt="rel"></div>
+          <div class="knob" data-f="cmak" data-scope="g" data-min="0" data-max="127" data-def="0" data-name="MAKEUP" data-fmt="mak"></div>
+        </div>
+        <div class="help" style="margin-top:8px" id="mhelp"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div id="help"><div class="panel" id="helpbox">
+  <div id="helpnav"></div>
+  <div id="helptext">
+<h2 id="h-start">Quick start</h2>
+<p>Chordially plays a whole chord from one key, in the way chord instruments such as the Roland J-6 do. Pick a <b>pattern</b> in the grid (bottom left) and press <b>▶</b> (or <kbd>Space</kbd>). Chordially plays its chord progression. Or play the keys yourself: the KeyStep, the Mac keyboard (<kbd>A W S E D F T G Y H U J K</kbd>), the piano on screen, or the 12 chord pads. Every key plays a chord, and the <b>STYLE</b> decides how it's played: held, arpeggiated, strummed or as a rhythm.</p>
+<p>Everything is saved automatically within about 5 seconds: patterns, settings and MIDI learn. The AU insert is saved when you pick or bypass it, its own knob settings every 30 seconds and when you quit. There is no WRITE step.</p>
+
+<h2 id="h-piano">The piano and the colours</h2>
+<table>
+<tr><td><span class="sw" style="background:var(--key-ch-w)"></span><b>light</b></td><td>The notes of the chord that's selected now: four notes, the bass (left) and three above it. In CHORD mode, the key you press picks the chord; it isn't one of the chord's notes itself.</td></tr>
+<tr><td><span class="sw" style="background:var(--acc)"></span><b>solid</b></td><td>The notes <b>sounding right now</b>. With STYLE OFF, all four light together. With an arpeggio or phrase, they light one by one in rhythm. A note that's still ringing when the chord has already changed stays solid until it ends.</td></tr>
+<tr><td><span class="sw" style="background:var(--acc2)"></span><b>bar</b></td><td>The key(s) you're holding: on the KeyStep, the Mac keyboard, a pad or the piano.</td></tr>
+</table>
+<p>The LCD shows the same in words. CHORD shows <i>key C4 → Cadd9</i> (which key gave which chord) and the four note names underneath. While the sequencer is playing and you hold nothing, it shows <i>from the sequencer</i>.</p>
+
+<h2 id="h-play">Playing chords</h2>
+<h3>CHORD on (default)</h3>
+<p>One key = one chord. <b>The key you press is always the bass note.</b> The chord set decides the chord on it: in the set "Pop Bright", the A key gives Am, the B key gives G/B. The octave you play in doesn't matter: every chord is voiced in the same register, so moving between any two chords moves each voice only a few semitones (real voice leading, not parallel root positions).</p>
+<p>If you hold several keys, <b>the newest key wins</b>. Let go of it and the chord of the key you still hold comes back. Let go of everything and the chord stops (with STYLE OFF; phrase notes finish their length).</p>
+<h3>CHORD off</h3>
+<p>The notes you hold <b>are</b> the chord, up to the newest four. The phrase plays them like an arpeggiator, and the LCD names the chord they form.</p>
+<h3>Sustain pedal</h3>
+<p>Keeps the chord sounding after you let go, until you release the pedal.</p>
+<h3>The 12 chord pads</h3>
+<p>The 12 chords of the current set in the current key, in order from the set's first chord. Each pad shows the chord, its notes, and the key that plays it (note name and Mac key). Click and hold a pad to play it. The pad of the chord sounding now is outlined.</p>
+
+<h2 id="h-chord">CHORD section</h2>
+<table>
+<tr><td><b>CHORD SET</b></td><td>64 sets of 12 chords, by genre: pop, jazz, bossa, neo soul, gospel, lofi, funk, blues, house, techno, trance, psy, goa, EDM, synthwave, ambient, healing, cinematic, classical, modal and more. Use ◀ ▶, the mouse wheel, or click the name for the full list.</td></tr>
+<tr><td><b>KEY</b></td><td>Moves the whole set: −12 … +12 semitones. The set's first chord then lands on that key. For example, KEY D (+2) puts the "C" chord on the D key, and the D key plays it in D.</td></tr>
+<tr><td><b>CHORD</b></td><td>CHORD mode on / off (see above).</td></tr>
+<tr><td><b>HOLD</b></td><td>Latch: with HOLD on, the chord keeps playing after you let go of the key. The next key you press replaces it. Turn HOLD off to release it. Off by default; MIDI-learnable (a controller button or a CC above 63 turns it on).</td></tr>
+<tr><td><b>VOICING</b></td><td>The register of the three upper notes (centre F#4 by default). Lower is darker and warmer; higher is brighter. The bass sits low, around F2–E3 (OCTAVE moves it with the rest).</td></tr>
+</table>
+
+<h2 id="h-phrase">PHRASE section</h2>
+<table>
+<tr><td><b>STYLE</b></td><td>How the chord is played. OFF = the chord is simply held (while the key is held, or for the whole step). See the list of styles below.</td></tr>
+<tr><td><b>VARIATION</b></td><td>8 variations of each style.</td></tr>
+<tr><td><b>GATE</b></td><td>The length of each phrase note, 10–100 % of its slot. Short = plucky.</td></tr>
+<tr><td><b>GATE RND</b></td><td>Randomises every note's length around GATE (0 % = all equal, 100 % = very uneven). Makes arps and rhythms feel played rather than programmed.</td></tr>
+<tr><td><b>SWING</b></td><td>Delays every second sixteenth, up to a triplet feel at 100 %.</td></tr>
+<tr><td><b>STRUM</b></td><td>The time between the notes of a strum (the d / u steps of the STRUM styles), 0–80 ms.</td></tr>
+<tr><td><b>OCTAVE</b></td><td>Moves everything Chordially plays up or down by up to two octaves (the built-in synth and MIDI out).</td></tr>
+</table>
+<div id="helpstyles"></div>
+<p>The tempo, style, variation, gate, swing, chord set, key, voicing, sound, filter, volume and the delay / reverb amounts belong to the <b>pattern</b>, as on the J-6. Switch pattern and they all change with it.</p>
+
+<h2 id="h-sound">SOUND section and AU insert</h2>
+<table>
+<tr><td><b>INSTRUMENT</b></td><td>The picker in the SOUND header. <b>INTERNAL</b> is the built-in synth (the default). Or pick any instrument plugin on your Mac: Chordially then plays it instead, sample-accurately, with everything else unchanged (phrases, AU insert, delay / reverb, MIDI out, the piano). <b>EDIT</b> opens the plugin's own window, and its sound is saved and loaded with it. With a plugin, the internal synth's controls (SOUND, ENVELOPE, ATTACK … RELEASE, EG INT, FILTER, RESO, SUB) are hidden because they don't apply to it; VOLUME, PAN and the EQ stay. Pick INTERNAL to go back. macOS hosts <b>Audio Units</b> (not VST): practically every Mac instrument installs an AU next to its VST3, and those AUs are listed.</td></tr>
+<tr><td><b>SOUND</b></td><td>The built-in synth's sounds, all chosen for playing chords: pads, strings, brass, keys and organs, plucks and stabs, and bells in the style of the classic 1980s polysynths. Every sound is level-matched (the loudest moment of a held chord is about −12 dB at VOLUME 100, never above −0.5 dBFS). Click the name for the list by category.</td></tr>
+<tr><td><b>FILTER / RESO / SUB</b></td><td>The sound's own filter cutoff (shown in Hz), resonance and sub-oscillator level, on 0 … 127 knobs like the envelope: each sound loads with its own values; turn to change; double-click = back to the sound's value. The ranges are the usable ones (FILTER from about 80 Hz, RESO up to 90 %). SUB is dimmed on sounds without a sub oscillator. The SOUND, FILTER, RESO, SUB, EG INT and envelope settings belong to the pattern.</td></tr>
+<tr><td><b>ATTACK, DECAY, SUSTAIN, RELEASE</b></td><td>The envelope in real values: ATTACK, DECAY and RELEASE in ms / s, SUSTAIN as a level in %. One ADSR shapes both the volume and the filter sweep. Picking a SOUND loads that sound's own envelope onto the knobs; turning a knob sets the value (kept with the pattern). Double-click returns to the sound's own value. The small <b>ENVELOPE</b> drawing next to SOUND shows the shape as set now: rise, fall to the sustain level, hold, release (times on a log scale so both short and long stages are visible).</td></tr>
+<tr><td><b>EG INT</b></td><td>How far the envelope opens the cutoff, 0–100 %: low = a steady tone, high = a bright attack and a plucky sweep. Loaded with the sound like the ADSR.</td></tr>
+<tr><td><b>ADJUST / EQ tabs</b></td><td>Under SOUND (with INTERNAL): <b>ADJUST</b> shows the envelope, EG INT, FILTER, RESO, SUB, VOLUME and PAN; <b>EQ</b> shows the 3-band EQ with a drawing of its curve, plus VOLUME and PAN. The tab you used last is remembered.</td></tr>
+<tr><td><b>PAN, EQ LOW / MID / HIGH</b></td><td>On the chord sound, with the internal synth or a plugin instrument, after the AU insert: PAN (L / C / R) and a 3-band EQ (LOW shelf 200 Hz, MID 1 kHz, HIGH shelf 5 kHz, ±12 dB; 0 dB = flat). Kept with the pattern.</td></tr>
+<tr><td><b>VOLUME</b></td><td>The pattern's level. The factory patterns are matched so they play at an even loudness.</td></tr>
+<tr><td><b>AU INSERT</b></td><td>One Audio Unit effect from your Mac, placed on the chord sound after the synth and before VOLUME and the delay / reverb sends. Pick it from the list. <b>EDIT</b> opens its own window; while that window is in front, your keys still play Chordially. <b>BYP</b> bypasses it. It gets Chordially's tempo and transport (tempo-synced delays follow), and it's saved with all its settings.</td></tr>
+</table>
+
+<h2 id="h-fx">EFFECTS section</h2>
+<table>
+<tr><td><b>DELAY TIME</b></td><td>Synced to the tempo: 1/16, 1/8T, 1/8, 1/8., 1/4, 1/4., 1/2. A ping-pong delay that darkens with each repeat.</td></tr>
+<tr><td><b>DELAY / REVERB</b></td><td>How much of the chord sound goes to each effect (per pattern). The S-1 and T-8 have their own sends in their strips.</td></tr>
+<tr><td><b>FEEDBACK, SIZE, TONE</b></td><td>The delay's repeats, and the reverb's length and brightness. These are shared by all patterns.</td></tr>
+</table>
+
+<h2 id="h-seq">Patterns and the sequencer</h2>
+<h3>Patterns</h3>
+<p>64 patterns: 8 banks × 8, from 1-1 to 8-8, all with factory progressions. Click one to select it. <b>While playing</b>, the new pattern blinks and starts when the current one reaches its end. CHANGE can set it to the next step or the next bar instead. Type a name in the name field. Use <i>copy to …</i> to copy the pattern to another slot.</p>
+<h3>Steps</h3>
+<p>Up to 64 steps. Each step holds a chord, a <b>tie</b> (the previous chord goes on, drawn as a line), or a <b>rest</b> (silence). <b>Length</b> sets how many steps play. <b>Step</b> sets how long one step is: 1/16, 1/8T, 1/8, 1/4 (default), 1/2 or 1 bar. The playing step is outlined in orange, and the LCD bar shows the page of 16 steps being played.</p>
+<table>
+<tr><td><b>Click a step</b></td><td>Selects it (the cyan outline shows the cursor while EDIT is on). <b>Alt-click</b> (while stopped) plays its chord while you hold the mouse button.</td></tr>
+<tr><td><b>EDIT</b></td><td>Step edit (while stopped): select a step, play a chord (any key, a pad or the piano), and it's written. The cursor moves to the next step.</td></tr>
+<tr><td><b>TIE</b></td><td>Writes a tie into the selected step and moves on: the chord before it is held longer.</td></tr>
+<tr><td><b>REST</b></td><td>Clears the selected step (silence) and moves on.</td></tr>
+<tr><td><b>Step style</b></td><td>Gives the selected step its own phrase style and variation, used for that chord and its ties. "pattern's" = the pattern's STYLE.</td></tr>
+<tr><td><b>● REC</b></td><td>Real-time recording while playing: the chord you play goes into the step that's playing (or the next one, if you press in the last quarter of a step).</td></tr>
+<tr><td><b>CLEAR</b></td><td>Double-click: empties the pattern (keeps its name and sound).</td></tr>
+<tr><td><b>RANDOM</b></td><td>Writes a new progression in the current chord set and key. The bass moves the way real progressions do (up a fourth / down a fifth strongest, then thirds and steps), the set's main chords come first, few chords repeat, and the version that flows best back to its first chord is kept. It also picks a rhythm (1- or 2-bar chords, pushes) and a phrase style. It names the pattern "Random NNN".</td></tr>
+<tr><td><b>GENERATIVE</b></td><td>On: every time the pattern comes round, one or two chords are replaced by musically related ones, and now and then the variation changes. The first chord always stays, so the progression keeps its home while it evolves.</td></tr>
+</table>
+
+<h2 id="h-master">MASTER and the compressor</h2>
+<table>
+<tr><td><b>LEVEL</b></td><td>The master output level. The meters show the chord sound, the output and the compressor's gain reduction (COMP, cyan, up to 20 dB).</td></tr>
+<tr><td><b>COMPRESSOR</b></td><td>On / off with the button next to its name. It works on the whole mix (chord sound, S-1, T-8, delay and reverb) before the output. <b>THRESH</b> −40…0 dB: the level where it starts. <b>RATIO</b> 1:1…20:1 (4:1 around the middle). <b>ATTACK</b> 0.1–100 ms: short catches peaks, longer lets the attack through. <b>RELEASE</b> 20 ms–1 s. <b>MAKEUP</b> 0–24 dB of gain afterwards. A soft knee keeps it smooth; after it, a soft limiter keeps the output below −1 dBFS.</td></tr>
+</table>
+
+<h2 id="h-ext">S-1 and T-8 (USB)</h2>
+<p>Plug in the Roland S-1 and / or T-8 by USB. Chordially finds their USB audio by name (the strip's dot turns green) and mixes it in: <b>LEVEL</b>, <b>MUTE</b>, <b>DELAY</b> and <b>REVERB</b> sends. With <b>SYNC</b> on, their USB MIDI port gets Chordially's clock and PLAY / STOP (set them to follow USB MIDI clock). macOS asks once for microphone access, which is needed to hear USB audio: allow it.</p>
+<table>
+<tr><td><b>AUDIO</b></td><td>On: the box's USB audio is mixed in. Off: Chordially doesn't open its audio at all (e.g. when you hear the box through a mixer instead).</td></tr>
+<tr><td><b>MIDI IN</b></td><td>Off (default): nothing that comes from the box is taken: its keys play only the box, and its own PLAY / STOP / clock don't start Chordially. On: its keys also play the chords, and (with SETUP's transport / clock settings) it can start Chordially.</td></tr>
+<tr><td><b>SYNC</b></td><td>Off (default): the box gets nothing from Chordially and runs on its own (Roland boxes can start their sequencer on clock alone, so clock without start is not offered). On: it gets Chordially's clock and PLAY / STOP, and its sequencer runs in time with Chordially.</td></tr>
+<tr><td><b>Audio</b> menu</td><td><b>AUTO</b> takes the device named like the box ("S-1"), never an aggregate device and never one named for both boxes. If you use an aggregate device (Audio MIDI Setup, e.g. "S-1 and T-8" in one), pick it here for each box and choose its inputs: e.g. the S-1 strip <i>in 1-2</i>, the T-8 strip <i>in 3-4</i>. The status next to the name shows which device is used.</td></tr>
+<tr><td><b>Thru → ch</b></td><td>Notes coming in on that MIDI channel (e.g. a KeyStep zone on channel 2) go straight to the box on its own channel, so you can play the S-1 from the KeyStep while Chordially plays the chords.</td></tr>
+</table>
+
+<h2 id="h-midi">MIDI, KeyStep, clock (SETUP)</h2>
+<table>
+<tr><td><b>Chord notes out to</b></td><td>A MIDI port and channel: everything the chord part plays is sent there, exactly as it sounds (phrases, strums). It can drive the MiniFreak, the SH-4d or a DAW.</td></tr>
+<tr><td><b>Built-in synth</b></td><td>OFF = only the external synth plays.</td></tr>
+<tr><td><b>Keys in on channel</b></td><td>ALL = any channel, except the S-1 / T-8 THRU channels.</td></tr>
+<tr><td><b>Clock</b></td><td>INTERNAL: Chordially is the master and sends clock to every port listed under <i>Clock out to</i> (on by default, except the IAC bus). EXTERNAL: it follows incoming MIDI clock (the LCD badge turns <b>EXT</b>).</td></tr>
+<tr><td><b>Start / stop in</b></td><td>The KeyStep's PLAY / STOP start and stop Chordially.</td></tr>
+<tr><td><b>Program change in</b></td><td>Selects patterns 1–64.</td></tr>
+<tr><td><b>MIDI LEARN</b></td><td>Click LEARN next to a parameter, then turn a knob on any controller. Or <b>Alt-click</b> any knob on the panel (every knob can be learned) and turn the controller knob. Defaults: the KeyStep 37's four knobs (CC 74, 71, 76, 77) = FILTER, STYLE, VARIATION, TEMPO. KEYSTEP DEFAULTS restores them.</td></tr>
+</table>
+<p>Leave the KeyStep's own CHORD mode off. Chordially makes the chords.</p>
+
+<h2 id="h-skins">Skins</h2>
+<p>SETUP → <b>SKIN</b> changes the look; it is saved. <b>STUDIO</b>: dark with orange (the J-6 feel). <b>PAPER BLUE</b>: soft off-white with calm blue, easy on the eyes in daylight. <b>ARCTIC</b>: brighter white with deep navy blue and a dark display. <b>MIDNIGHT</b>: deep navy with blue light. <b>GRAPHITE</b>: neutral grey with blue. <b>PAPYRUS</b>: warm cream paper with ink blue and a navy display, the softest for long sessions. The piano's three marks keep their meaning in every skin: light fill = chord notes, solid = sounding, bar = the key you hold.</p>
+
+<h2 id="h-keys">Knobs, keys and shortcuts</h2>
+<table>
+<tr><th>Knobs</th><td>Drag up / down (with <kbd>Shift</kbd>: fine), the mouse wheel steps by 1, <b>double-click</b> returns to the default, <b>Alt-click</b> = MIDI learn. The LCD shows the value while you turn.</td></tr>
+<tr><th>Tempo</th><td>Drag the tempo field up / down (<kbd>Shift</kbd>: fine) or use the wheel. 40–300 BPM, stored in the pattern.</td></tr>
+<tr><th>Mac keys</th><td><kbd>A</kbd> C · <kbd>W</kbd> C# · <kbd>S</kbd> D · <kbd>E</kbd> D# · <kbd>D</kbd> E · <kbd>F</kbd> F · <kbd>T</kbd> F# · <kbd>G</kbd> G · <kbd>Y</kbd> G# · <kbd>H</kbd> A · <kbd>U</kbd> A# · <kbd>J</kbd> B · <kbd>K</kbd> C.<br><kbd>Z</kbd> / <kbd>X</kbd> move the Mac keys an octave down / up (this matters with CHORD off; with CHORD on, every octave plays the same chord).</td></tr>
+<tr><th>Transport</th><td><kbd>Space</kbd> play / stop. ■ stops; pressed again while stopped, it sends all notes off. <kbd>Esc</kbd> = stop (or close this window).</td></tr>
+<tr><th>Help</th><td><kbd>?</kbd> opens this manual.</td></tr>
+</table>
+
+<h2 id="h-about">About and licence</h2>
+<p><b>Chordially 2.0</b> · © 2026 Pavel Vild.</p>
+<p>Chordially is free software: you can use, study, share and change it under the terms of the <b>GNU General Public License, version 3</b> (GPL-3.0-only). It comes with <b>no warranty</b>. The full licence text is in the file <i>LICENSE</i> that comes with the app and its source code.</p>
+<p><b>An independent project.</b> Chordially is not made, endorsed, sponsored or supported by Roland Corporation, Arturia, or any other manufacturer named here, and is not connected with them. It contains no code, firmware, samples, sound data, presets, chord-set tables, artwork or manual text from any of them. The synth engines, sounds, chord sets, phrases, interface and help are its own.</p>
+<p><b>Trademarks.</b> Roland, J-6, S-1, T-8 and AIRA are trademarks of Roland Corporation. Arturia and KeyStep are trademarks of Arturia. Apple, Mac, macOS and Audio Units are trademarks of Apple Inc. All other names are the property of their owners. They are used here only to say which instruments Chordially works with, or to describe its general idea, and imply no affiliation.</p>
+  </div>
+</div></div>
+
+<div id="setup"><div class="panel" id="setupbox">
+  <div style="display:flex;justify-content:space-between;align-items:center"><h2>SETUP</h2><button id="bsetupx">CLOSE</button></div>
+  <h3>SKIN</h3>
+  <div class="skins" id="skins"></div>
+  <h3>MIDI · CHORD PART</h3>
+  <div class="form">
+    <span>Chord notes out to</span><div><select id="outport"></select> channel <select id="outch"></select></div>
+    <span>Built-in synth</span><div><button id="blocal">ON</button> <span class="small">off = play only an external synth over MIDI</span></div>
+    <span>Keys in on channel</span><div><select id="inch"></select> <span class="small">ALL takes every channel except those passed through to the S-1 / T-8</span></div>
+  </div>
+  <h3>CLOCK · TRANSPORT</h3>
+  <div class="form">
+    <span>Clock</span><div><button id="bclkint">INTERNAL</button> <button id="bclkext">EXTERNAL</button> <span class="small">internal: Chordially is the master; external: follows MIDI clock coming in</span></div>
+    <span>Start / stop in</span><div><button id="btrin">ON</button> <span class="small">the KeyStep's PLAY / STOP start and stop Chordially</span></div>
+    <span>Program change in</span><div><button id="bpcin">ON</button> <span class="small">selects patterns 1..64</span></div>
+    <span>Clock out to</span><div class="ports" id="clkports"></div>
+  </div>
+  <h3>CONTROLLERS · MIDI LEARN</h3>
+  <div class="help">Click <b>LEARN</b>, then turn a knob on the KeyStep (or any controller). Defaults: the KeyStep 37's four knobs (CC 74, 71, 76, 77) = FILTER, STYLE, VARIATION, TEMPO. You can also click a knob on the panel with Alt to learn it.</div>
+  <div class="cclist" id="cclist" style="margin-top:8px"></div>
+  <div style="margin-top:8px"><button id="bccdef">KEYSTEP DEFAULTS</button></div>
+  <h3>MORE</h3>
+  <div class="help">The full manual, with every control explained: <b>HELP</b> (top right) or the <b>?</b> key.</div>
+</div></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const NN = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+const nname = n => NN[n % 12] + (Math.floor(n / 12) - 1);
+let S = null, LV = null;           // state, live
+const send = o => { const s = JSON.stringify(o); try { window.webkit.messageHandlers.cm.postMessage(s); } catch (e) { if (window.__cmOut) window.__cmOut(s); } };
+
+/* ------------------------------------------------------------------ the LCD's value flash */
+let flashT = 0;
+function flash(k, v) { $("#flk").textContent = k; $("#flv").textContent = v; $("#flash").classList.add("show"); clearTimeout(flashT); flashT = setTimeout(() => $("#flash").classList.remove("show"), 1100); }
+
+/* ------------------------------------------------------------------ piano: C2 .. C6 */
+const PLO = 24, PHI = 96;   // C1 .. C7 (OCTAVE -2..+2 stays on screen)
+const piano = $("#piano"), keyEl = {};
+(function buildPiano() {
+  const whites = []; for (let n = PLO; n <= PHI; n++) if (![1, 3, 6, 8, 10].includes(n % 12)) whites.push(n);
+  const W = 100 / whites.length;
+  whites.forEach((n, i) => { const d = document.createElement("div"); d.className = "w" + (n % 12 === 0 ? " c" : ""); d.dataset.n = nname(n); d.style.left = (i * W) + "%"; d.style.width = W + "%"; piano.appendChild(d); keyEl[n] = d; d.dataset.note = n; });
+  for (let n = PLO; n <= PHI; n++) if ([1, 3, 6, 8, 10].includes(n % 12)) {
+    const left = whites.indexOf(n - 1); const d = document.createElement("div"); d.className = "b"; d.style.left = ((left + 1) * W - W * 0.3) + "%"; d.style.width = (W * 0.6) + "%"; piano.appendChild(d); keyEl[n] = d; d.dataset.note = n;
+  }
+  let down = null;
+  piano.addEventListener("pointerdown", e => { const n = +e.target.dataset.note; if (!n) return; down = n; send({ t: "key", n, v: 100 }); piano.setPointerCapture(e.pointerId); });
+  const up = () => { if (down != null) { send({ t: "key", n: down, v: 0 }); down = null; } };
+  piano.addEventListener("pointerup", up); piano.addEventListener("pointercancel", up);
+})();
+let lastPiano = "";
+function drawPiano() {
+  const c = LV ? LV.c : { cn: [], snd: [], held: [] };
+  const sig = c.cn.join() + "|" + c.snd.join() + "|" + c.held.join();
+  if (sig === lastPiano) return; lastPiano = sig;
+  for (const n in keyEl) keyEl[n].classList.remove("ch", "so", "hd");
+  c.cn.forEach(n => keyEl[n] && keyEl[n].classList.add("ch"));
+  c.snd.forEach(n => keyEl[n] && keyEl[n].classList.add("so"));
+  c.held.forEach(n => keyEl[n] && keyEl[n].classList.add("hd"));
+}
+
+/* ------------------------------------------------------------------ pads */
+const PADKEYS = "A W S E D F T G Y H U J".split(" ");
+function padNote(i) { const key = S ? S.chord.p.key : 0; return 60 + (((i + key) % 12) + 12) % 12; }
+(function buildPads() {
+  const p = $("#pads");
+  for (let i = 0; i < 12; i++) {
+    const d = document.createElement("div"); d.className = "pad"; d.innerHTML = '<div class="n">—</div><div class="s"></div><div class="kb"></div>';
+    d.addEventListener("pointerdown", e => { d.setPointerCapture(e.pointerId); d._n = padNote(i); send({ t: "key", n: d._n, v: 100 }); });
+    const up = () => { if (d._n != null) { send({ t: "key", n: d._n, v: 0 }); d._n = null; } };
+    d.addEventListener("pointerup", up); d.addEventListener("pointercancel", up);
+    p.appendChild(d);
+  }
+})();
+function drawPads() {
+  const pads = $$("#pads .pad"), key = S.chord.p.key;
+  S.chord.pads.forEach((pd, i) => {
+    pads[i].querySelector(".n").textContent = pd[0];
+    pads[i].querySelector(".s").textContent = pd[1].map(n => NN[n % 12]).join(" ");
+    const pc = (((i + key) % 12) + 12) % 12;
+    pads[i].querySelector(".kb").textContent = NN[pc] + " · " + PADKEYS[pc];
+  });
+}
+
+/* ------------------------------------------------------------------ knobs */
+const knobs = [];
+function knobVal(el) {
+  const f = el.dataset.f, sc = el.dataset.scope;
+  if (!S) return +el.dataset.def;
+  if (sc === "g") return S.g[f];
+  if (sc === "part") return S.chord[f];
+  if (sc === "ext") return S.ext[+el.dataset.k][f];
+  return S.chord.p[f];
+}
+function knobText(el, v) {
+  const u = el.dataset.unit || "";
+  if (el.dataset.fmt) {
+    const f = el.dataset.fmt;
+    if (f === "thr") return (-40 + v * 40 / 127).toFixed(1) + " dB";
+    if (f === "rat") return (1 + Math.pow(v / 127, 2) * 19).toFixed(1) + ":1";
+    if (f === "atk") { const ms = 0.1 * Math.pow(1000, v / 127); return ms < 10 ? ms.toFixed(1) + " ms" : Math.round(ms) + " ms"; }
+    if (f === "rel") { const ms = 20 * Math.pow(50, v / 127); return ms < 1000 ? Math.round(ms) + " ms" : (ms / 1000).toFixed(2) + " s"; }
+    if (f === "mak") return "+" + (v * 24 / 127).toFixed(1) + " dB";
+  }
+  if (el.dataset.env != null) return S && S.chord.p.ehas && !S.chord.p.ehas[+el.dataset.env] ? "—" : S && S.chord.p.etext ? S.chord.p.etext[+el.dataset.env] : String(v);
+  if (el.dataset.pan) return v === 64 ? "C" : v < 64 ? "L" + Math.round((64 - v) * 100 / 64) : "R" + Math.round((v - 64) * 100 / 63);
+  if (el.dataset.db) { const d = (v - 64) * 12 / 63; return (Math.abs(d) < 0.05 ? "0" : (d > 0 ? "+" : "") + d.toFixed(Math.abs(d) < 10 ? 1 : 0)) + " dB"; }
+  if (el.dataset.bi) return (v - 64 > 0 ? "+" : "") + (v - 64);
+  if (el.dataset.f === "center") return nname(v);
+  if (el.dataset.f === "oct") return (v > 0 ? "+" : "") + v;
+  return v + u;
+}
+function knobSend(el, v) {
+  const f = el.dataset.f, sc = el.dataset.scope;
+  if (sc === "g") { S.g[f] = v; send({ t: "g", f, v }); }
+  else if (sc === "ext") { S.ext[+el.dataset.k][f] = v; send({ t: "ext", k: +el.dataset.k, f, v }); }
+  else { if (sc === "part") S.chord[f] = v; else S.chord.p[f] = v; send({ t: "set", f, v }); }
+  flash(el.dataset.name, knobText(el, v));
+  drawKnob(el);
+}
+function initKnob(el) {
+  el.innerHTML = '<div class="kl"></div><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" style="fill:var(--knob-face);stroke:var(--knob-track)"/><path class="trk" fill="none" style="stroke:var(--knob-track)" stroke-width="3" stroke-linecap="round"/><path class="arc" fill="none" stroke="var(--acc)" stroke-width="3" stroke-linecap="round"/><line class="ptr" x1="20" y1="20" x2="20" y2="8" style="stroke:var(--knob-ptr)" stroke-width="2" stroke-linecap="round"/></svg><div class="kv"></div>';
+  el.querySelector(".kl").textContent = el.dataset.name;
+  const a0 = -135, a1 = 135;
+  const pt = a => { const r = (a - 90) * Math.PI / 180; return [20 + 15 * Math.cos(r), 20 + 15 * Math.sin(r)]; };
+  const arc = (from, to) => { if (Math.abs(to - from) < 0.5) return ""; const [x0, y0] = pt(from), [x1, y1] = pt(to); return `M${x0} ${y0} A15 15 0 ${Math.abs(to - from) > 180 ? 1 : 0} ${to > from ? 1 : 0} ${x1} ${y1}`; };
+  el.querySelector(".trk").setAttribute("d", arc(a0, a1));
+  el._arc = arc; el._a = [a0, a1];
+  let y0, v0, drag = false;
+  el.addEventListener("pointerdown", e => {
+    if (e.altKey) { const t = el.dataset.learn || (el.dataset.scope === "ext" ? (el.dataset.k == 0 ? "s1_" : "t8_") + el.dataset.f : el.dataset.f); if (t) { send({ t: "learn", s: t }); flash("LEARN", "turn a knob"); } return; }
+    drag = true; y0 = e.clientY; v0 = knobVal(el); el.setPointerCapture(e.pointerId);
+  });
+  el.addEventListener("pointermove", e => {
+    if (!drag) return;
+    const mn = +el.dataset.min, mx = +el.dataset.max, range = mx - mn;
+    const v = Math.round(Math.max(mn, Math.min(mx, v0 + (y0 - e.clientY) * range / (e.shiftKey ? 600 : 150))));
+    if (v !== knobVal(el)) knobSend(el, v);
+  });
+  el.addEventListener("pointerup", () => drag = false);
+  el.addEventListener("dblclick", () => { if (el.dataset.env != null) { send({ t: "set", f: el.dataset.f, v: -1 }); flash(el.dataset.name, "as the sound"); } else knobSend(el, +el.dataset.def); });
+  el.addEventListener("wheel", e => { e.preventDefault(); const mn = +el.dataset.min, mx = +el.dataset.max; const v = Math.max(mn, Math.min(mx, knobVal(el) + (e.deltaY < 0 ? 1 : -1))); knobSend(el, v); }, { passive: false });
+  knobs.push(el);
+}
+function drawKnob(el) {
+  const v = knobVal(el), mn = +el.dataset.min, mx = +el.dataset.max;
+  const [a0, a1] = el._a, a = a0 + (v - mn) / (mx - mn) * (a1 - a0);
+  const from = el.dataset.bi || el.dataset.db || el.dataset.pan || el.dataset.f === "oct" ? 0 : a0;
+  el.querySelector(".arc").setAttribute("d", el._arc(Math.min(from, a), Math.max(from, a)));
+  el.querySelector(".ptr").setAttribute("transform", `rotate(${a} 20 20)`);
+  el.querySelector(".kv").textContent = knobText(el, v);
+  const tgt = el.dataset.learn || (el.dataset.scope === "ext" ? (el.dataset.k == 0 ? "s1_" : "t8_") + el.dataset.f : el.dataset.f);
+  el.classList.toggle("learn", !!(S && S.learn && S.learn === tgt));
+  if (el.dataset.env != null) { const na = !!(S && S.chord.p.ehas && !S.chord.p.ehas[+el.dataset.env]); el.classList.toggle("na", na); el.title = na ? "This sound has no " + el.dataset.name.toLowerCase() + " control" : ""; }
+}
+
+/* ------------------------------------------------------------------ the envelope drawing (static) */
+function drawEnv() {
+  const g = $("#envgraph"); if (!g || !S || !S.chord.p.esec) return;
+  const [a, d, sl, r] = S.chord.p.esec;
+  const W = t => 30 * Math.log10(1 + Math.max(0, t) * 1000) / Math.log10(1 + 20000);   /* 0..20 s -> 0..30 px, log */
+  let wa = Math.max(1.5, W(a)), wd = Math.max(1.5, W(d)), wr = Math.max(1.5, W(r)), ws = 16;
+  const tot = wa + wd + ws + wr, k = tot > 92 ? 92 / tot : 1;
+  wa *= k; wd *= k; ws *= k; wr *= k;
+  const x0 = 4, top = 4, bot = 24, sy = bot - (bot - top) * sl;
+  const pts = [[x0, bot], [x0 + wa, top], [x0 + wa + wd, sy], [x0 + wa + wd + ws, sy], [x0 + wa + wd + ws + wr, bot]];
+  const path = "M" + pts.map(p => p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" L");
+  g.innerHTML = `<path d="${path} Z" style="fill:var(--acc-soft)" stroke="none"/><path d="${path}" fill="none" stroke="var(--acc)" stroke-width="1.6" stroke-linejoin="round"/>` +
+    pts.slice(1, 4).map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="1.6" style="fill:var(--key-ch-w)"/>`).join("");
+}
+
+/* ------------------------------------------------------------------ the SOUND tabs (ADJUST / EQ) and the EQ curve */
+$$("#sndtabs button").forEach(b => b.onclick = () => {
+  $("#controls").dataset.tab = b.dataset.tab;
+  $$("#sndtabs button").forEach(x => x.classList.toggle("on", x === b));
+  try { localStorage.setItem("cm-sndtab", b.dataset.tab); } catch (e) { }
+  drawEq();
+});
+try { const t = localStorage.getItem("cm-sndtab"); if (t) { const b = $(`#sndtabs button[data-tab="${t}"]`); if (b) b.click(); } } catch (e) { }
+function drawEq() {
+  const g = $("#eqgraph"); if (!g || !S) return;
+  const p = S.chord.p, G = [p.eql, p.eqm, p.eqh].map(v => (v - 64) * 12 / 63), F = [200, 1000, 5000];
+  /* the same filters as the core (RBJ shelves / peak), magnitude in dB at 120 log-spaced points */
+  const sr = 48000, mags = [];
+  const coef = (type, f, gdb) => { const A = Math.pow(10, gdb / 40), w = 2 * Math.PI * f / sr, cw = Math.cos(w), sw = Math.sin(w); let b0, b1, b2, a0, a1, a2;
+    if (type === 1) { const al = sw / (2 * 0.8); b0 = 1 + al * A; b1 = -2 * cw; b2 = 1 - al * A; a0 = 1 + al / A; a1 = -2 * cw; a2 = 1 - al / A; }
+    else { const al = sw / 2 * Math.sqrt(2), sa = 2 * Math.sqrt(A) * al;
+      if (type === 0) { b0 = A * ((A + 1) - (A - 1) * cw + sa); b1 = 2 * A * ((A - 1) - (A + 1) * cw); b2 = A * ((A + 1) - (A - 1) * cw - sa); a0 = (A + 1) + (A - 1) * cw + sa; a1 = -2 * ((A - 1) + (A + 1) * cw); a2 = (A + 1) + (A - 1) * cw - sa; }
+      else { b0 = A * ((A + 1) + (A - 1) * cw + sa); b1 = -2 * A * ((A - 1) + (A + 1) * cw); b2 = A * ((A + 1) + (A - 1) * cw - sa); a0 = (A + 1) - (A - 1) * cw + sa; a1 = 2 * ((A - 1) - (A + 1) * cw); a2 = (A + 1) - (A - 1) * cw - sa; } }
+    return [b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0]; };
+  const C = [0, 1, 2].map(i => coef(i, F[i], G[i]));
+  const mag = (c, f) => { const w = 2 * Math.PI * f / sr, re = x => Math.cos(x), im = x => -Math.sin(x);
+    const nr = c[0] + c[1] * re(w) + c[2] * re(2 * w), ni = c[1] * im(w) + c[2] * im(2 * w);
+    const dr = 1 + c[3] * re(w) + c[4] * re(2 * w), di = c[3] * im(w) + c[4] * im(2 * w);
+    return 10 * Math.log10((nr * nr + ni * ni) / (dr * dr + di * di)); };
+  let d = "";
+  for (let i = 0; i <= 120; i++) { const f = 20 * Math.pow(1000, i / 120); const db = C.reduce((a, c) => a + mag(c, f), 0); const x = i * 300 / 120, y = 20 - db * 18 / 14; d += (i ? " L" : "M") + x.toFixed(1) + " " + Math.max(1, Math.min(39, y)).toFixed(1); }
+  g.innerHTML = `<line x1="0" y1="20" x2="300" y2="20" style="stroke:var(--knob-track)" stroke-width="1"/>` + [200, 1000, 5000].map(f => { const x = Math.log10(f / 20) / 3 * 300; return `<line x1="${x}" y1="2" x2="${x}" y2="38" style="stroke:var(--line)" stroke-dasharray="2 3"/>`; }).join("") +
+    `<path d="${d}" fill="none" stroke="var(--acc)" stroke-width="1.8" vector-effect="non-scaling-stroke"/>`;
+}
+
+/* ------------------------------------------------------------------ selectors (◀ value ▶) */
+function selInfo(f) {
+  const c = S.chord, p = c.p;
+  switch (f) {
+    case "set": return { v: p.set, n: c.sets.length, txt: i => (i + 1) + " " + c.sets[i], list: c.sets.map((s, i) => (i + 1) + " " + s) };
+    case "key": return { v: p.key + 12, n: 25, txt: i => { const k = i - 12; return NN[((k % 12) + 12) % 12] + (k === 0 ? "" : " (" + (k > 0 ? "+" : "") + k + ")"); }, map: i => i - 12 };
+    case "style": return { v: p.style, n: c.styles.length, txt: i => c.styles[i][0], list: c.styles.map(s => s[0]) };
+    case "var": { const st = c.styles[p.style]; return { v: p.var, n: 8, txt: i => p.style ? (i + 1) + " " + st[i + 1] : "—", list: p.style ? st.slice(1).map((s, i) => (i + 1) + " " + s) : null }; }
+    case "sound": return { v: p.sound, n: c.sounds.length, txt: i => c.sounds[i][0], list: c.sounds.map((s, i) => s[1] + " · " + s[0]) };
+    case "dly_time": return { v: S.g.dly_time, n: S.g.dly_names.length, txt: i => S.g.dly_names[i], g: 1 };
+    case "last": return { v: p.last - 1, n: 64, txt: i => String(i + 1), map: i => i + 1 };
+  }
+}
+function selSet(f, idx) {
+  const inf = selInfo(f); if (!inf) return;
+  idx = Math.max(0, Math.min(inf.n - 1, idx));
+  const v = inf.map ? inf.map(idx) : idx;
+  if (inf.g) { S.g[f] = v; send({ t: "g", f, v }); } else { S.chord.p[f] = v; send({ t: "set", f, v }); }
+  flash(f === "var" ? "VARIATION" : f.toUpperCase().replace("DLY_TIME", "DELAY TIME"), inf.txt(idx));
+}
+$$(".sel").forEach(el => {
+  const f = el.dataset.f, [bl, val, br] = el.querySelectorAll(".box > *");
+  bl.onclick = () => selSet(f, selInfo(f).v - 1);
+  br.onclick = () => selSet(f, selInfo(f).v + 1);
+  val.addEventListener("wheel", e => { e.preventDefault(); selSet(f, selInfo(f).v + (e.deltaY > 0 ? 1 : -1)); }, { passive: false });
+  val.onclick = () => {                                   // a list to pick from
+    const inf = selInfo(f); if (!inf || !inf.list) return;
+    const s = document.createElement("select"); s.size = Math.min(18, inf.list.length);
+    inf.list.forEach((t, i) => { const o = document.createElement("option"); o.value = i; o.textContent = t; s.appendChild(o); });
+    s.value = inf.v; const r = val.getBoundingClientRect();
+    Object.assign(s.style, { position: "fixed", left: r.left + "px", top: Math.min(r.bottom, innerHeight - 330) + "px", zIndex: 60, minWidth: Math.max(180, r.width) + "px" });
+    document.body.appendChild(s); s.focus();
+    const done = () => { if (s.parentNode) s.remove(); };
+    s.onchange = () => { selSet(f, +s.value); done(); }; s.onblur = done;
+    s.onkeydown = e => { if (e.key === "Escape" || e.key === "Enter") { if (e.key === "Enter") selSet(f, +s.value); done(); } e.stopPropagation(); };
+  };
+  el._draw = () => { const inf = selInfo(f); val.textContent = inf.txt(inf.v); };
+});
+
+/* ------------------------------------------------------------------ sequencer */
+(function buildSeq() {
+  const g = $("#patgrid");
+  for (let i = 0; i < 64; i++) { const d = document.createElement("div"); d.textContent = (Math.floor(i / 8) + 1) + "-" + (i % 8 + 1); d.onclick = () => send({ t: "pattern", v: i }); g.appendChild(d); }
+  const st = $("#steps");
+  for (let i = 0; i < 64; i++) {
+    const d = document.createElement("div"); d.className = "st";
+    d.addEventListener("pointerdown", e => { send({ t: "sel", v: i, hear: e.altKey || !(S && S.chord.edit) ? 0 : 0 }); if (e.altKey) { send({ t: "sel", v: i, hear: 1 }); d._h = 1; } });
+    d.addEventListener("pointerup", () => { if (d._h) { send({ t: "unhear" }); d._h = 0; } });
+    st.appendChild(d);
+  }
+  const sb = $("#stepbar"); for (let i = 0; i < 16; i++) sb.appendChild(document.createElement("i"));
+  const ct = $("#copyto"); ct.innerHTML = '<option value="-1">copy to …</option>' + Array.from({ length: 64 }, (_, i) => `<option value="${i}">${Math.floor(i / 8) + 1}-${i % 8 + 1}</option>`).join("");
+  ct.onchange = () => { if (+ct.value >= 0) send({ t: "copypat", v: +ct.value }); ct.value = -1; };
+  $("#patrename").addEventListener("change", e => send({ t: "set", f: "name", s: e.target.value.slice(0, 15) }));
+  $("#patrename").addEventListener("keydown", e => e.stopPropagation());
+  $("#bedit").onclick = () => send({ t: "edit", v: S.chord.edit ? 0 : 1 });
+  $("#btie").onclick = () => send({ t: "tie" });
+  $("#brest").onclick = () => send({ t: "rest" });
+  $("#bclear").ondblclick = () => send({ t: "clearpat" });
+  $("#bclear").onclick = () => flash("CLEAR", "double-click");
+  $("#steplen").onchange = e => send({ t: "set", f: "steplen", v: +e.target.value });
+  $("#pchange").onchange = e => send({ t: "set", f: "pchange", v: +e.target.value });
+  $("#brandom").onclick = () => { send({ t: "random" }); flash("RANDOM", "new pattern"); };
+  $("#bgen").onclick = () => { send({ t: "gen", v: S.chord.gen ? 0 : 1 }); flash("GENERATIVE", S.chord.gen ? "off" : "on"); };
+  $("#ststyle").onchange = e => { const [s, v] = e.target.value.split(",").map(Number); send({ t: "stepstyle", v: s, var: v }); };
+})();
+function drawSeq() {
+  const c = S.chord, p = c.p;
+  $$("#patgrid div").forEach((d, i) => { d.classList.toggle("u", !!c.pats[i][1]); d.classList.toggle("cur", i === c.pat); d.classList.toggle("nx", i === c.next); d.title = c.pats[i][0]; });
+  $("#patinfo").textContent = (Math.floor(c.pat / 8) + 1) + "-" + (c.pat % 8 + 1) + " · " + p.name;
+  if (document.activeElement !== $("#patrename")) $("#patrename").value = p.name;
+  const steps = $$("#steps .st");
+  c.steps.forEach((s, i) => {
+    const d = steps[i];
+    d.className = "st" + (i >= p.last ? " off" : "") + (s[0] < 0 ? " tie" : s[0] > 0 ? " has" : "");
+    d.innerHTML = `<span class="sn">${i + 1}</span><span class="sl">${s[0] > 0 ? s[1] : ""}</span>` + (s[3] >= 0 ? `<span class="ss">${s[3] ? c.styles[s[3]][0].slice(0, 3) : "OFF"}</span>` : "");
+    d.title = s[0] > 0 ? s[1] + " · " + s[2].map(nname).join(" ") : s[0] < 0 ? "tie" : "rest";
+  });
+  $("#bedit").classList.toggle("on", !!c.edit);
+  $("#bgen").classList.toggle("on", !!c.gen);
+  $("#steplen").innerHTML = c.steplens.map((s, i) => `<option value="${i}">${s}</option>`).join(""); $("#steplen").value = p.steplen;
+  $("#pchange").value = c.pchange;
+  const ss = $("#ststyle"); let h = '<option value="-1,0">pattern\'s</option>';
+  c.styles.forEach((st, si) => { if (si === 0) h += '<option value="0,0">OFF</option>'; else for (let v = 0; v < 8; v++) h += `<option value="${si},${v}">${st[0]} ${v + 1} ${st[v + 1]}</option>`; });
+  ss.innerHTML = h; const cs = c.steps[c.sel]; ss.value = cs && cs[3] >= 0 ? cs[3] + "," + (cs[3] ? cs[4] : 0) : "-1,0";
+}
+
+/* ------------------------------------------------------------------ ext strips */
+function buildStrips() {
+  $$(".strip").forEach(el => {
+    const k = +el.dataset.k, nm = k === 0 ? "S-1" : "T-8";
+    el.innerHTML = `<div class="hdr"><span class="dot"></span><span class="nm">${nm}</span><span class="small stx"></span><div class="meter"><i></i></div><button class="mute">MUTE</button></div>
+      <div class="row">
+        <div class="knob" data-scope="ext" data-k="${k}" data-f="level" data-min="0" data-max="127" data-def="100" data-name="LEVEL"></div>
+        <div class="knob" data-scope="ext" data-k="${k}" data-f="dly" data-min="0" data-max="127" data-def="0" data-name="DELAY"></div>
+        <div class="knob" data-scope="ext" data-k="${k}" data-f="rev" data-min="0" data-max="127" data-def="0" data-name="REVERB"></div>
+        <div class="xcol">
+          <div class="xtg"><button class="tg" data-f="audio" title="Take the ${nm}'s USB audio into Chordially">AUDIO</button><button class="tg" data-f="midi_in" title="MIDI from the ${nm} reaches Chordially: its keys play the chords and its PLAY / STOP / clock can drive Chordially (off: nothing from the ${nm} is taken)">MIDI IN</button><button class="tg" data-f="start" title="SYNC: send Chordially's clock and PLAY / STOP to the ${nm}, so its sequencer runs with Chordially (off: the ${nm} gets nothing and runs on its own)">SYNC</button></div>
+          <div class="xrow"><span class="small">Audio</span><select class="adev" title="Where the ${nm}'s audio comes from. AUTO: the device named ${nm} (never an aggregate device)"></select><select class="ach" title="The inputs of that device"></select></div>
+          <div class="xrow"><span class="small">Thru</span><select class="thin" title="THRU: notes on this channel (from any controller) go out to the ${nm}"></select><span class="arr">→</span><select class="thch" title="on this channel"></select></div>
+        </div>
+      </div>`;
+    el.querySelectorAll(".knob").forEach(initKnob);
+    const ti = el.querySelector(".thin"), tc = el.querySelector(".thch");
+    ti.innerHTML = '<option value="0">OFF</option>' + Array.from({ length: 16 }, (_, i) => `<option value="${i + 1}">ch ${i + 1}</option>`).join("");
+    tc.innerHTML = Array.from({ length: 16 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join("");
+    ti.onchange = () => send({ t: "ext", k, f: "thru_in", v: +ti.value });
+    tc.onchange = () => send({ t: "ext", k, f: "thru_ch", v: +tc.value });
+    el.querySelector(".mute").onclick = () => send({ t: "ext", k, f: "mute", v: S.ext[k].mute ? 0 : 1 });
+    el.querySelectorAll(".tg").forEach(b => b.onclick = () => send({ t: "ext", k, f: b.dataset.f, v: S.ext[k][b.dataset.f] ? 0 : 1 }));
+    const ad = el.querySelector(".adev"), ac = el.querySelector(".ach");
+    ad.onchange = () => send({ t: "ext", k, f: "adev", s: ad.value, v: 0 });
+    ac.onchange = () => send({ t: "ext", k, f: "adev", s: ad.value, v: +ac.value });
+  });
+}
+function drawStrips() {
+  $$(".strip").forEach(el => {
+    const k = +el.dataset.k, x = S.ext[k];
+    el.querySelector(".dot").classList.toggle("on", !!x.present);
+    el.querySelector(".stx").textContent = !x.audio ? "audio off" : x.present ? (x.adev ? x.adev : "USB audio") : "not connected";
+    el.querySelectorAll(".tg").forEach(b => b.classList.toggle("on", !!x[b.dataset.f]));
+    {   /* the audio device menu: AUTO + every input device (an aggregate is marked; pick it and its inputs by hand) */
+      const ad = el.querySelector(".adev"), ac = el.querySelector(".ach"), list = S.adevs || [];
+      const h = `<option value="">AUTO · ${x.dev}</option>` + list.map(d => `<option value="${d[0].replace(/"/g, "&quot;")}">${d[0].replace(/</g, "&lt;")}${d[2] ? " (aggregate)" : ""}</option>`).join("") + (x.adev && !list.some(d => d[0] === x.adev) ? `<option value="${x.adev.replace(/"/g, "&quot;")}">${x.adev.replace(/</g, "&lt;")} (not there)</option>` : "");
+      if (ad._h !== h) { ad.innerHTML = h; ad._h = h; }
+      ad.value = x.adev || "";
+      const d = list.find(d => d[0] === x.adev), nin = d ? d[1] : 2;
+      let hc = ""; for (let c = 0; c + 1 < nin; c += 2) hc += `<option value="${c}">in ${c + 1}-${c + 2}</option>`;
+      if (nin === 1) hc = '<option value="0">in 1</option>';
+      if (ac._h !== hc) { ac.innerHTML = hc; ac._h = hc; }
+      ac.value = x.ach; ac.style.display = x.adev && nin > 2 ? "" : "none";
+      el.querySelector(".xrow").classList.toggle("dim", !x.audio);
+    }
+    el.querySelector(".mute").classList.toggle("on", !!x.mute);
+    el.querySelector(".thin").value = x.thru_in; el.querySelector(".thch").value = x.thru_ch;
+  });
+}
+
+/* ------------------------------------------------------------------ setup */
+function drawSetup() {
+  const c = S.chord;
+  const op = $("#outport"); op.innerHTML = '<option value="">— none —</option>' + S.ports.outs.map(p => `<option>${p[0].replace(/</g, "&lt;")}</option>`).join("");
+  if (c.outport && !S.ports.outs.some(p => p[0] === c.outport)) op.innerHTML += `<option>${c.outport}</option>`;
+  op.value = c.outport;
+  $("#outch").innerHTML = Array.from({ length: 16 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join(""); $("#outch").value = c.outch;
+  $("#inch").innerHTML = '<option value="0">ALL</option>' + Array.from({ length: 16 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join(""); $("#inch").value = c.inch;
+  $("#blocal").textContent = c.local ? "ON" : "OFF"; $("#blocal").classList.toggle("on", !!c.local);
+  $("#bclkint").classList.toggle("on", S.g.clk_src === 0); $("#bclkext").classList.toggle("on", S.g.clk_src === 1);
+  $("#btrin").textContent = S.g.tr_in ? "ON" : "OFF"; $("#btrin").classList.toggle("on", !!S.g.tr_in);
+  $("#bpcin").textContent = S.g.pc_in ? "ON" : "OFF"; $("#bpcin").classList.toggle("on", !!S.g.pc_in);
+  $("#clkports").innerHTML = S.ports.outs.length ? "" : '<span class="small">no MIDI outputs</span>';
+  S.ports.outs.forEach(p => { const b = document.createElement("button"); b.textContent = p[0]; b.classList.toggle("on", !!p[1]); b.onclick = () => send({ t: "clockport", s: p[0], v: p[1] ? 0 : 1 }); $("#clkports").appendChild(b); });
+  const T = [["cut", "FILTER"], ["res", "RESO"], ["sub", "SUB"], ["style", "STYLE"], ["var", "VARIATION"], ["bpm", "TEMPO"], ["gate", "GATE"], ["grnd", "GATE RND"], ["swing", "SWING"], ["dly", "DELAY"], ["rev", "REVERB"], ["vol", "VOLUME"], ["ea", "ATTACK"], ["ed", "DECAY"], ["es", "SUSTAIN"], ["er", "RELEASE"], ["eg", "EG INT"], ["pan", "PAN"], ["eql", "EQ LOW"], ["eqm", "EQ MID"], ["eqh", "EQ HIGH"], ["set", "CHORD SET"], ["sound", "SOUND"], ["hold", "HOLD"], ["mvol", "MASTER"], ["cthr", "COMP THRESH"], ["crat", "COMP RATIO"], ["cmak", "COMP MAKEUP"], ["s1_level", "S-1 LEVEL"], ["t8_level", "T-8 LEVEL"], ["s1_rev", "S-1 REVERB"], ["t8_rev", "T-8 REVERB"]];
+  $("#cclist").innerHTML = "";
+  T.forEach(([t, n]) => {
+    const m = S.cc.find(x => x[1] === t);
+    const d = document.createElement("div"); d.className = S.learn === t ? "lrn" : "";
+    d.innerHTML = `<span>${n}</span><span class="small">${m ? "CC " + m[0] : "—"}</span>`;
+    const b = document.createElement("button"); b.textContent = S.learn === t ? "…" : "LEARN";
+    b.onclick = () => send({ t: "learn", s: S.learn === t ? "" : t });
+    d.appendChild(b);
+    const x = document.createElement("button"); x.textContent = "×"; x.title = "Forget this controller"; x.onclick = () => send({ t: "unlearn", s: t });
+    if (!m) x.style.visibility = "hidden";
+    d.appendChild(x);
+    $("#cclist").appendChild(d);
+  });
+}
+$("#bsetup").onclick = () => $("#setup").classList.add("show");
+$("#bsetupx").onclick = () => $("#setup").classList.remove("show");
+$("#setup").onclick = e => { if (e.target.id === "setup") $("#setup").classList.remove("show"); };
+$("#outport").onchange = e => send({ t: "set", f: "outport", s: e.target.value });
+$("#outch").onchange = e => send({ t: "set", f: "outch", v: +e.target.value });
+$("#inch").onchange = e => send({ t: "set", f: "inch", v: +e.target.value });
+$("#blocal").onclick = () => send({ t: "set", f: "local", v: S.chord.local ? 0 : 1 });
+$("#bclkint").onclick = () => send({ t: "g", f: "clk_src", v: 0 });
+$("#bclkext").onclick = () => send({ t: "g", f: "clk_src", v: 1 });
+$("#btrin").onclick = () => send({ t: "g", f: "tr_in", v: S.g.tr_in ? 0 : 1 });
+$("#bpcin").onclick = () => send({ t: "g", f: "pc_in", v: S.g.pc_in ? 0 : 1 });
+$("#bccdef").onclick = () => send({ t: "ccdefault" });
+$("#bcomp").onclick = () => { send({ t: "g", f: "comp", v: S.g.comp ? 0 : 1 }); flash("COMPRESSOR", S.g.comp ? "off" : "on"); };
+
+
+/* ------------------------------------------------------------------ skins */
+const SKINS = [["studio", "STUDIO"], ["paper", "PAPER BLUE"], ["arctic", "ARCTIC"], ["midnight", "MIDNIGHT"], ["graphite", "GRAPHITE"], ["papyrus", "PAPYRUS"]];
+function applySkin(i) { document.documentElement.dataset.skin = (SKINS[i] || SKINS[0])[0]; drawEnv(); drawEq(); }
+(function buildSkins() {
+  const box = $("#skins");
+  SKINS.forEach(([id, name], i) => {
+    const d = document.createElement("div"); d.className = "skin"; d.dataset.i = i;
+    d.innerHTML = `<div class="pv" data-skin="${id}" style="background:var(--panel)"><div class="t" style="background:var(--lcd);color:var(--lcdt)">Cadd9</div>` +
+      `<div class="k">${[0, 1, 2, 3, 4, 5, 6].map(k => `<i style="background:${k === 2 || k === 4 ? "var(--acc)" : k === 0 ? "var(--key-ch-w)" : "var(--key-w)"}"></i>`).join("")}</div></div><div class="nm">${name}</div>`;
+    d.onclick = () => { send({ t: "g", f: "skin", v: i }); applySkin(i); $$("#skins .skin").forEach(x => x.classList.toggle("on", x === d)); };
+    box.appendChild(d);
+  });
+})();
+
+/* ------------------------------------------------------------------ transport, tempo */
+$("#bplay").onclick = () => send({ t: LV && LV.play ? "stop" : "play" });
+$("#bstop").onclick = () => send({ t: "stop" });
+$("#brec").onclick = () => send({ t: "rec", v: S.chord.rec ? 0 : 1 });
+$("#bchord").onclick = () => send({ t: "set", f: "chordmode", v: S.chord.chordmode ? 0 : 1 });
+$("#bhold").onclick = () => { send({ t: "set", f: "hold", v: S.chord.hold ? 0 : 1 }); flash("HOLD", S.chord.hold ? "off" : "on"); };
+(function tempoDrag() {
+  const t = $("#tempo"); let y0, v0, d = false;
+  t.addEventListener("pointerdown", e => { d = true; y0 = e.clientY; v0 = S.chord.p.bpm10; t.setPointerCapture(e.pointerId); });
+  t.addEventListener("pointermove", e => { if (!d) return; const v = Math.max(400, Math.min(3000, Math.round(v0 + (y0 - e.clientY) * (e.shiftKey ? 1 : 5)))); if (v !== S.chord.p.bpm10) { S.chord.p.bpm10 = v; send({ t: "set", f: "bpm10", v }); flash("TEMPO", (v / 10).toFixed(1)); } });
+  t.addEventListener("pointerup", () => d = false);
+  t.addEventListener("wheel", e => { e.preventDefault(); const v = Math.max(400, Math.min(3000, S.chord.p.bpm10 + (e.deltaY < 0 ? 10 : -10))); S.chord.p.bpm10 = v; send({ t: "set", f: "bpm10", v }); flash("TEMPO", (v / 10).toFixed(1)); }, { passive: false });
+})();
+
+
+/* ------------------------------------------------------------------ help */
+(function helpInit() {
+  const nav = $("#helpnav");
+  $$("#helptext h2").forEach(h => { const a = document.createElement("a"); a.textContent = h.textContent; a.onclick = () => h.scrollIntoView({ behavior: "smooth" }); nav.appendChild(a); });
+  $("#bhelp").onclick = () => { drawHelpStyles(); $("#help").classList.add("show"); };
+  $("#help").onclick = e => { if (e.target.id === "help") $("#help").classList.remove("show"); };
+})();
+function drawHelpStyles() {
+  if (!S) return;
+  const st = S.chord.styles;
+  let h = "<table><tr><th>STYLE</th><th>Variations 1–8</th></tr>";
+  st.forEach((x, i) => { if (i) h += `<tr><td><b>${x[0]}</b></td><td>${x.slice(1).map((v, k) => (k + 1) + " " + v).join(" · ")}</td></tr>`; });
+  h += "</table><p>ARP 8 / ARP 16: arpeggios in eighths / sixteenths. PSY: rolling sixteenth patterns (trance and psytrance). PULSE: the whole chord in a rhythm. RHYTHM: stabs and comping (house offbeats, skank, funk, gate). STRUM / STRUM RHY: guitar-like strums (low → high on downstrokes, high → low on upstrokes). BROKEN: piano-style broken chords (Alberti, ballad, waltz, stride).</p>";
+  $("#helpstyles").innerHTML = h;
+}
+
+/* ------------------------------------------------------------------ the Mac keyboard */
+const KMAP = { KeyA: 0, KeyW: 1, KeyS: 2, KeyE: 3, KeyD: 4, KeyF: 5, KeyT: 6, KeyG: 7, KeyY: 8, KeyZ_: 0, KeyH: 9, KeyU: 10, KeyJ: 11, KeyK: 12 };
+let kOct = 0; const kDown = {};
+window.__cmKey = (code, down, rep) => {
+  if (rep) return;
+  if (down && code === "Space") { $("#bplay").click(); return; }
+  if (down && code === "Escape") { if ($("#help").classList.contains("show")) $("#help").classList.remove("show"); else if ($("#setup").classList.contains("show")) $("#setup").classList.remove("show"); else send({ t: "stop" }); return; }
+  if (down && code === "Slash") { $("#bhelp").click(); return; }
+  if (down && code === "KeyZ") { kOct = Math.max(-3, kOct - 1); flash("OCTAVE", (kOct > 0 ? "+" : "") + kOct); return; }
+  if (down && code === "KeyX") { kOct = Math.min(3, kOct + 1); flash("OCTAVE", (kOct > 0 ? "+" : "") + kOct); return; }
+  if (!(code in KMAP)) return;
+  if (down) { if (kDown[code] != null) return; const n = 60 + 12 * kOct + KMAP[code]; kDown[code] = n; send({ t: "key", n, v: 100 }); }
+  else if (kDown[code] != null) { send({ t: "key", n: kDown[code], v: 0 }); delete kDown[code]; }
+};
+// (every key the page takes is marked handled: otherwise macOS beeps "nothing to type into" for each note)
+const typing = e => e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA";
+addEventListener("keydown", e => { if (e.metaKey || e.ctrlKey || typing(e)) return; window.__cmKey(e.code, true, e.repeat); e.preventDefault(); });
+addEventListener("keyup", e => { if (e.metaKey || e.ctrlKey || typing(e)) return; window.__cmKey(e.code, false, false); e.preventDefault(); });
+addEventListener("blur", () => { for (const c in kDown) window.__cmKey(c, false, false); });
+
+/* ------------------------------------------------------------------ drawing */
+function drawState() {
+  const c = S.chord, p = c.p;
+  $$(".sel").forEach(el => el._draw && el._draw());
+  knobs.forEach(drawKnob);
+  drawEnv(); drawEq();
+  drawPads(); drawSeq(); drawStrips(); drawSetup();
+  $("#bchord").classList.toggle("on", !!c.chordmode);
+  $("#bhold").classList.toggle("on", !!c.hold);
+  document.body.classList.toggle("ext-inst", !!c.engine);
+  if (S.g.skin != null && document.documentElement.dataset.skin !== (SKINS[S.g.skin] || SKINS[0])[0]) applySkin(S.g.skin);
+  $$("#skins .skin").forEach((x, i) => x.classList.toggle("on", i === (S.g.skin || 0)));
+  $("#bcomp").textContent = S.g.comp ? "ON" : "OFF"; $("#bcomp").classList.toggle("on", !!S.g.comp); $("#master").classList.toggle("comp-off", !S.g.comp);
+  $("#brec").classList.toggle("on", !!c.rec);
+  $("#patnum").textContent = (Math.floor(c.pat / 8) + 1) + "-" + (c.pat % 8 + 1);
+  $("#patname").textContent = p.name;
+  $("#steplast").textContent = p.last;
+  $("#i_style").textContent = p.style ? c.styles[p.style][0] + " " + (p.var + 1) + " · " + c.styles[p.style][p.var + 1] : "OFF (held chord)";
+  $("#i_sound").textContent = c.sounds[p.sound] ? c.sounds[p.sound][0] + " · " + c.sounds[p.sound][1] : "";
+  $("#i_set").textContent = (p.set + 1) + " " + c.sets[p.set];
+  $("#i_key").textContent = NN[((p.key % 12) + 12) % 12] + (p.key ? " (" + (p.key > 0 ? "+" : "") + p.key + ")" : "");
+  $("#mhelp").innerHTML = "Clock out to " + (S.ports.outs.filter(x => x[1]).map(x => "<b>" + x[0] + "</b>").join(", ") || "no port") + (S.g.clk_src ? " · following external clock" : "") + (c.outport ? "<br>Chord notes → <b>" + c.outport + "</b> ch " + c.outch : "");
+}
+let lastStep = -1, lastLiveSig = "";
+function drawLive() {
+  const c = LV.c;
+  $("#bplay").classList.toggle("on", !!LV.play);
+  $("#bplay").textContent = LV.play ? "❚❚" : "▶";
+  $("#tempo").textContent = LV.bpm.toFixed(1);
+  $("#clk").textContent = LV.ext ? "EXT" : "INT"; $("#clk").classList.toggle("ext", !!LV.ext);
+  const sig = c.chord + "|" + c.cn.join() + "|" + c.held.join() + "|" + LV.play;
+  if (sig !== lastLiveSig) {
+    lastLiveSig = sig;
+    $("#chordname").textContent = c.chord || "—";
+    $("#chordnotes").innerHTML = c.cn.length ? c.cn.map(nname).join("  ") : "&nbsp;";
+    $("#keyto").textContent = c.held.length && c.chord ? "· key " + nname(c.held[c.held.length - 1]) + " → " + c.chord : (c.chord && LV.play ? "· from the sequencer" : "");
+    // the pad of the chord now
+    const pads = $$("#pads .pad");
+    pads.forEach(p => p.classList.remove("on"));
+    if (S && c.chord) S.chord.pads.forEach((pd, i) => { if (pd[0] === c.chord) pads[i].classList.add("on"); });
+  }
+  drawPiano();
+  if (S) {
+    const p = S.chord.p, step = LV.play ? c.step : -1;
+    if (step !== lastStep || c.sel !== S.chord.sel) {
+      lastStep = step; S.chord.sel = c.sel;
+      $$("#steps .st").forEach((d, i) => { d.classList.toggle("pl", i === step); d.classList.toggle("sel", i === c.sel && !!S.chord.edit); });
+      const page = Math.floor(Math.max(0, step) / 16), bar = $$("#stepbar i");
+      bar.forEach((b, i) => { const s = page * 16 + i; b.className = (s === step ? "p" : "") + (s < p.last && S.chord.steps[s][0] ? " u" : ""); });
+      $("#stepnum").textContent = step >= 0 ? step + 1 : "-";
+    }
+    $("#barnum").textContent = LV.play ? Math.floor(LV.beat / 4) + 1 : "-";
+    $$("#patgrid div").forEach((d, i) => d.classList.toggle("nx", i === c.next));
+  }
+  const mv = (id, v) => { const el = $(id + " i"); if (el) el.style.width = Math.min(100, Math.max(0, (20 * Math.log10(v + 1e-6) + 48) / 48 * 100)) + "%"; };
+  mv("#m0", LV.pk[0]); mv("#m3", LV.pk[3]);
+  { const i = $("#mgr i"); if (i) i.style.width = Math.min(100, (LV.gr || 0) / 20 * 100) + "%"; }
+  $$(".strip").forEach((el, k) => { const i = el.querySelector(".meter i"); const v = LV.pk[k + 1]; i.style.width = Math.min(100, Math.max(0, (20 * Math.log10(v + 1e-6) + 48) / 48 * 100)) + "%"; if (LV.x[k] && S && S.ext[k].present !== LV.x[k].present) { S.ext[k].present = LV.x[k].present; drawStrips(); } });
+}
+let PLUGS = [], INSTS = [], INS = { id: "", name: "", byp: false, loading: false }, INST = { id: "", name: "", loading: false };
+function drawInstrument() {
+  const sel = $("#instsel");
+  sel.innerHTML = '<option value="">INTERNAL</option>' + INSTS.map(p => `<option value="${p.id}">${p.name.replace(/</g, "&lt;")}</option>`).join("");
+  if (INST.id && !INSTS.some(p => p.id === INST.id)) sel.innerHTML += `<option value="${INST.id}">${INST.name}</option>`;
+  sel.value = INST.id || "";
+  $("#instwin").disabled = !INST.id; $("#instwin").style.display = INST.id ? "" : "none";   /* (EDIT only for a plugin instrument) */
+  sel.title = INST.loading ? "loading …" : (INST.name || "INTERNAL: the built-in synth");
+}
+$("#instsel").onchange = e => { send({ t: "pluginst", id: e.target.value }); flash("INSTRUMENT", e.target.value ? e.target.selectedOptions[0].textContent : "INTERNAL"); };
+$("#instwin").onclick = () => send({ t: "pluginstwin" });
+function drawInsert() {
+  const sel = $("#plugsel");
+  sel.innerHTML = '<option value="">— none —</option>' + PLUGS.map(p => `<option value="${p.id}">${p.name.replace(/</g, "&lt;")}</option>`).join("");
+  if (INS.id && !PLUGS.some(p => p.id === INS.id)) sel.innerHTML += `<option value="${INS.id}">${INS.name}</option>`;
+  sel.value = INS.id || "";
+  $("#plugbyp").classList.toggle("on", !!INS.byp);
+  $("#plugwin").disabled = !INS.id;
+  sel.title = INS.loading ? "loading …" : (INS.name || "no plugin");
+}
+$("#plugsel").onchange = e => { send({ t: "plugfx", id: e.target.value }); flash("AU INSERT", e.target.value ? e.target.selectedOptions[0].textContent : "none"); };
+$("#plugwin").onclick = () => send({ t: "plugwin" });
+$("#plugbyp").onclick = () => send({ t: "plugbyp", on: !INS.byp });
+window.__cmIn = list => {
+  for (const m of list) {
+    if (m.t === "state") { S = m; drawState(); }
+    else if (m.t === "live") { LV = m; drawLive(); }
+    else if (m.t === "plugs") { PLUGS = m.fx || []; INSTS = m.inst || []; drawInsert(); drawInstrument(); }
+    else if (m.t === "instrument") { INST = m; drawInstrument(); }
+    else if (m.t === "insert") { INS = m; drawInsert(); }
+    else if (m.t === "toast") flash("NOTE", m.text);
+  }
+};
+$$("#controls .knob:not(.spacer), #master .knob").forEach(initKnob);
+buildStrips();
+/* small windows: the whole page scales down (designed for 1512 x 945, grows freely above that) */
+function fit() { const z = Math.min(1, innerWidth / 1512, innerHeight / 945); document.documentElement.style.zoom = z < 0.999 ? z : ""; document.body.style.height = z < 0.999 ? (100 / z) + "vh" : ""; }
+addEventListener("resize", fit); fit();
+send({ t: "hello" });
+send({ t: "plughello" });
+</script>
+</body>
+</html>
